@@ -11,9 +11,9 @@ export const API_VERSION = '2026-12-01';
 export const DEFAULT_BASE_URL = 'https://developers-api.foreverlearning.ai/v1';
 
 // Free test attempts per workspace, for the life of the workspace (the guide, "What counts as a turn").
-// The developer lane confirms the number: 20 today. It becomes 30 when the developer lane's
-// release carrying the higher allowance ships. Existing workspaces keep the allowance they
-// enrolled under, so the tool states this as "your workspace's free test attempts".
+// The developer lane confirms the number: 20 today. It becomes 50 with the developer lane's
+// allowance release. Existing workspaces keep the allowance they enrolled under, so the tool
+// states this as "your workspace's free test attempts".
 export const FREE_TEST_ATTEMPTS = 20;
 
 // The price of a turn that succeeds, as the public copy says it. The live price shown to the
