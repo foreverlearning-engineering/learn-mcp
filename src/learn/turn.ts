@@ -28,11 +28,20 @@ function result(key: string, t: string, isError = false, structured?: Record<str
   };
 }
 
-function noKey(): string {
-  return 'No Learn API key is set, so no test turn can be sent. The docs tools (learn_guide, learn_contract, learn_kits, learn_kit) work without one.\n\n'
-    + 'To send test turns, the developer puts their own server key (from My APIs in the developer console) in FOREVERLEARNING_API_KEY in the environment this server runs in, '
+// How to add a key. A host that starts this server its own way (the VS Code extension, which keeps
+// the key in its secret storage) can replace this paragraph with LEARN_MCP_KEY_HELP.
+const KEY_HELP_MAX = 1000;
+export function keyHelp(env: NodeJS.ProcessEnv): string {
+  const own = (env.LEARN_MCP_KEY_HELP ?? '').trim();
+  if (own) return own.slice(0, KEY_HELP_MAX);
+  return 'To send test turns, the developer puts their own server key (from My APIs in the developer console) in FOREVERLEARNING_API_KEY in the environment this server runs in, '
     + 'and the API host in FOREVERLEARNING_BASE_URL (production: ' + DEFAULT_BASE_URL + '; staging: ' + STAGING_BASE + '). '
-    + 'If the key has more than one Learn assignment, also FOREVERLEARNING_ASSIGNMENT_ID. Then restart this server. Never paste the key into the conversation.';
+    + 'If the key has more than one Learn assignment, also FOREVERLEARNING_ASSIGNMENT_ID. Then restart this server.';
+}
+
+function noKey(env: NodeJS.ProcessEnv): string {
+  return 'No Learn API key is set, so no test turn can be sent. The docs tools (learn_guide, learn_contract, learn_kits, learn_kit) work without one.\n\n'
+    + keyHelp(env) + ' Never paste the key into the conversation.';
 }
 
 export function costLine(catalog: Catalog): string {
@@ -135,7 +144,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ message, kind, opening, confirm, allow_live }, ctx: ServerContext) => {
     const s = settings(env);
-    if (!s.key) return out(noKey());
+    if (!s.key) return out(noKey(env));
     const cap = maxTurns(env);
     if (budget.sent >= cap.limit) {
       return out('Not sent: this server has already sent ' + budget.sent + ' test turn' + (budget.sent === 1 ? '' : 's') + ', its limit for one run (' + cap.limit + '). '
@@ -243,7 +252,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, async ({ request_id }) => {
     const s = settings(env);
-    if (!s.key) return out(noKey());
+    if (!s.key) return out(noKey(env));
     const { state } = loadProject(s.base, s.assignment, env);
     let r: Lookup;
     try {

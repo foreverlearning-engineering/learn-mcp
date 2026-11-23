@@ -155,6 +155,7 @@ The server keeps its test learner and session ids (never the key) in `~/.forever
 | `LEARN_MCP_CONFIRM_DIALOG` | on | `off` skips the confirmation dialog; your assistant still asks first. |
 | `LEARN_MCP_STATE_DIR` | `~/.foreverlearning/learn-mcp` | Where the test learner and session ids are kept. |
 | `LEARN_MCP_PROJECT` | the folder the server starts in | Which project the test learner belongs to. |
+| `LEARN_MCP_KEY_HELP` | none | For a tool that starts this server its own way: the words that tell a developer with no key how to add one. |
 
 ## The docs inside
 

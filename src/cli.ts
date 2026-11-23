@@ -29,7 +29,7 @@ if (flag('help')) {
     + '  learn-mcp --docs-only  stdio server, docs only\n'
     + '  learn-mcp --http [--port 8787] [--host 127.0.0.1]   docs only, Streamable HTTP at /mcp\n\n'
     + 'Environment: FOREVERLEARNING_API_KEY, FOREVERLEARNING_BASE_URL, FOREVERLEARNING_ASSIGNMENT_ID,\n'
-    + 'LEARN_MCP_MAX_TURNS (default 2, at most 10), LEARN_MCP_STATE_DIR, LEARN_MCP_PROJECT, LEARN_MCP_CONFIRM_DIALOG=off.');
+    + 'LEARN_MCP_MAX_TURNS (default 2, at most 10), LEARN_MCP_STATE_DIR, LEARN_MCP_PROJECT, LEARN_MCP_CONFIRM_DIALOG=off, LEARN_MCP_KEY_HELP.');
   process.exit(0);
 }
 

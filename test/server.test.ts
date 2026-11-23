@@ -68,6 +68,28 @@ test('docs tools answer without a key and without the network', async () => {
   await c.close();
 });
 
+test('without a key, a host can say how to add one in its own words (LEARN_MCP_KEY_HELP)', async () => {
+  const plain = await connect({ LEARN_MCP_STATE_DIR: stateDir });
+  const standard = await plain.call('learn_test_turn', { message: 'hi', confirm: true });
+  assert.match(standard.text, /puts their own server key .* in FOREVERLEARNING_API_KEY in the environment this server runs in/);
+  assert.match(standard.text, /Then restart this server\. Never paste the key into the conversation\.$/);
+  await plain.close();
+
+  const help = 'In VS Code, run "Learn: Set API key" from the Command Palette.';
+  const hosted = await connect({ LEARN_MCP_STATE_DIR: stateDir, LEARN_MCP_KEY_HELP: '  ' + help + '\n' });
+  for (const tool of ['learn_test_turn', 'learn_lookup_request']) {
+    const r = await hosted.call(tool, tool === 'learn_test_turn' ? { message: 'hi', confirm: true } : { request_id: 'req_x' });
+    assert.match(r.text, /^No Learn API key is set/);
+    assert.ok(r.text.includes(help + ' Never paste the key into the conversation.'), tool + ': the host\'s words, and the warning kept');
+    assert.doesNotMatch(r.text, /in the environment this server runs in/, tool + ': the default paragraph is replaced');
+  }
+  const long = await connect({ LEARN_MCP_STATE_DIR: stateDir, LEARN_MCP_KEY_HELP: 'x'.repeat(5000) });
+  assert.ok((await long.call('learn_test_turn', { message: 'hi' })).text.length < 1300, 'the host text is capped');
+  await hosted.close();
+  await long.close();
+  assert.equal(mock.requests.length, 0);
+});
+
 test('without confirm, the tool states the cost and sends nothing', async () => {
   const c = await connect(env());
   const r = await c.call('learn_test_turn', { message: 'I am stuck on 3x + 5 = 20.' });
