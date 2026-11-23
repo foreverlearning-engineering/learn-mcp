@@ -168,7 +168,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       const answer = acceptedContent(ctx.mcpReq.inputResponses, 'confirm', schema);
       if (!answer) {
         const view = inputResponse(ctx.mcpReq.inputResponses, 'confirm');
-        if (view.kind === 'elicit') return out('Not sent: the developer did not confirm the test turn.');
+        if (view.kind === 'elicit') return out('Not sent: the confirmation dialog was declined or closed, so nothing was sent and nothing was used. Do not call again unless the developer asks. Where no one can answer a dialog (a run with no person at the keyboard), the developer can set LEARN_MCP_CONFIRM_DIALOG=off for this server; the assistant still asks in the conversation first.');
         return inputRequired({
           inputRequests: {
             confirm: inputRequired.elicit({

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "ai.foreverlearning/learn",
+  "title": "Learn API",
+  "description": "Build with the Learn API: its guide, contract, verified kits, and a capped test turn with your key.",
+  "version": "0.1.0",
+  "websiteUrl": "https://developers.foreverlearning.ai/",
+  "repository": {
+    "url": "https://github.com/foreverlearning-engineering/learn-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@foreverlearning/learn-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FOREVERLEARNING_API_KEY",
+          "description": "Your Learn server key, from My APIs in the developer console. Needed only for test turns; the docs tools work without it.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FOREVERLEARNING_BASE_URL",
+          "description": "The API host, ending in /v1.",
+          "isRequired": false,
+          "default": "https://developers-api.foreverlearning.ai/v1",
+          "format": "string"
+        },
+        {
+          "name": "FOREVERLEARNING_ASSIGNMENT_ID",
+          "description": "Your Learn assignment id, if your key has more than one.",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

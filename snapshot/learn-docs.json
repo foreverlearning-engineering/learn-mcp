@@ -1,6 +1,6 @@
 {
  "schema": "learn-mcp.snapshot.v1",
- "taken_at": "2026-11-23T19:06:34.728Z",
+ "taken_at": "2026-11-23T19:17:11.304Z",
  "sources": {
   "docs_read_from": "https://foreverlearning-developers-staging.netlify.app",
   "links_point_to": "https://developers.foreverlearning.ai",
@@ -450,7 +450,6 @@
   }
  },
  "warnings": [
-  "class: VERIFIED, but its developer-site page /build/class/ does not carry the same prompt word for word; listed as coming soon",
-  "the staging host still appears in the snapshot text"
+  "class: held until the terms revision publishes (owner ruling, 2026-11-23); listed as coming soon"
  ]
 }

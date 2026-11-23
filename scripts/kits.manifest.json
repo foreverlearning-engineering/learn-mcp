@@ -1,5 +1,5 @@
 {
-  "comment": "The Build with Learn kits the server can offer. A kit is bundled only when the kits record marks it VERIFIED and its developer-site page carries the same prompt word for word; otherwise it is listed as coming soon.",
+  "comment": "The Build with Learn kits the server can offer. A kit is bundled only when the kits record marks it VERIFIED and its developer-site page carries the same prompt word for word; otherwise it is listed as coming soon. A kit with a hold stays coming soon whatever its page shows, until the hold is removed here.",
   "kits": [
     { "id": "01-first-tutor", "step": "Step 1", "page": "/build/1/", "prompt": "first-tutor" },
     { "id": "02-four-kinds-of-help", "step": "Step 2", "page": "/build/2/" },
@@ -7,6 +7,6 @@
     { "id": "04-remember-the-learner", "step": "Step 4", "page": "/build/4/" },
     { "id": "05-safety-status", "step": "Step 5", "page": "/build/5/" },
     { "id": "embed", "step": "Recipe", "page": "/build/embed/", "prompt": "embed-learn" },
-    { "id": "class", "step": "Recipe", "page": "/build/class/" }
+    { "id": "class", "step": "Recipe", "page": "/build/class/", "hold": "held until the terms revision publishes (owner ruling, 2026-11-23)" }
   ]
 }

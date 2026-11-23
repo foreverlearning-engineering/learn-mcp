@@ -177,8 +177,9 @@ async function readKits() {
     } catch (error) {
       warnings.push(k.id + ': could not read its page ' + k.page + ' (' + error.message + ')');
     }
-    const available = verified && onPage;
-    if (!verified) warnings.push(k.id + ': not marked VERIFIED in the kits record; listed as coming soon');
+    const available = verified && onPage && !k.hold;
+    if (k.hold) warnings.push(k.id + ': ' + k.hold + '; listed as coming soon');
+    else if (!verified) warnings.push(k.id + ': not marked VERIFIED in the kits record; listed as coming soon');
     else if (!onPage) warnings.push(k.id + ': VERIFIED, but its developer-site page ' + k.page + ' does not carry the same prompt word for word; listed as coming soon');
     kits.push({
       id: k.id,
