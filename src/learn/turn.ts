@@ -18,6 +18,7 @@ const STAGING_BASE = 'https://developers-api-staging.foreverlearning.ai/v1';
 const SETUP = { task: { kind: 'homework' }, team_dialog: false };
 
 const dollars = (micro: number) => '$' + (micro / 1_000_000).toFixed(2);
+const asLearnError = (error: unknown) => (error instanceof LearnError ? error : new LearnError('network', 0, 'CLIENT_ERROR', String((error as Error)?.message ?? error)));
 
 function result(key: string, t: string, isError = false, structured?: Record<string, unknown>) {
   return {
@@ -146,7 +147,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     try {
       catalog = await readCatalog(s, state.learner_id);
     } catch (error) {
-      return out('Could not read the assignment\'s catalog (free), so nothing was sent.\n' + explain(error as LearnError), true);
+      return out('Could not read the assignment\'s catalog (free), so nothing was sent.\n' + explain(asLearnError(error)), true);
     }
     if (catalog.mode === 'live' && !allow_live) {
       return out('Not sent: this key\'s assignment is live, so a turn spends real money (' + (catalog.price_micro_usd === null ? '5¢' : dollars(catalog.price_micro_usd)) + ' per turn that succeeds). '
@@ -188,7 +189,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
         state.session_prepared_at = new Date().toISOString();
         saveProject(projectKey, state, env);
       } catch (error) {
-        return out('Could not prepare the test session (free), so no turn was sent.\n' + explain(error as LearnError), true);
+        return out('Could not prepare the test session (free), so no turn was sent.\n' + explain(asLearnError(error)), true);
       }
     }
 
@@ -200,7 +201,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     try {
       result = await sendTurn(s, state.learner_id, { sessionId: state.session_id, prompt: (message ?? '').trim(), kind, opening });
     } catch (error) {
-      const e = error instanceof LearnError ? error : new LearnError('unconfirmed', 0, 'CLIENT_ERROR', (error as Error).message);
+      const e = error instanceof LearnError ? error : new LearnError('unconfirmed', 0, 'CLIENT_ERROR', String((error as Error)?.message ?? error));
       if (e.requestId) { state.last_request_id = e.requestId; state.last_request_at = new Date().toISOString(); }
       if (e.kind === 'refused' && e.code === 'DEVELOPER_OPERATION_REFUSED') state.session_id = '';
       saveProject(projectKey, state, env);
@@ -246,7 +247,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     try {
       r = await lookupRequest(s, state.learner_id, request_id.trim());
     } catch (error) {
-      const e = error as LearnError;
+      const e = asLearnError(error);
       if (e.status === 401) {
         return out('401: nothing to look up. A lookup finds only a request Learn accepted, read with the same key, assignment and test learner. A request refused at the door was never accepted: nothing was charged.', true);
       }
