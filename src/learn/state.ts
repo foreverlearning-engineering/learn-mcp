@@ -62,7 +62,11 @@ export function loadProject(base: string, assignment: string, env: NodeJS.Proces
   const project = projectPath(env);
   const key = projectKey(project, base, assignment);
   const data = read(env);
-  const state = data.projects[key] ?? {
+  const existing = data.projects[key];
+  if (existing) return { key, state: existing };
+  // A new project's learner is saved at once, so every request from the first (even a free
+  // catalog read for a cost preview) uses the same learner id.
+  const state: ProjectState = {
     project,
     base_url: base,
     assignment,
@@ -73,6 +77,8 @@ export function loadProject(base: string, assignment: string, env: NodeJS.Proces
     last_request_at: '',
     turns_sent: 0,
   };
+  data.projects[key] = state;
+  write(env, data);
   return { key, state };
 }
 

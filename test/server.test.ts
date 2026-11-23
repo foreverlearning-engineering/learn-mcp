@@ -115,6 +115,18 @@ test('the test learner and its session are kept between server runs', async () =
   assert.equal(chats()[1].body.posture, 'feedback');
 });
 
+test('every request, from the first cost preview on, uses the one test learner', async () => {
+  mock.mode = 'live';
+  const c = await connect(env());
+  await c.call('learn_test_turn', { message: 'a' }); // refused: live, not allowed
+  await c.call('learn_test_turn', { message: 'a', allow_live: true }); // the cost preview
+  await c.call('learn_test_turn', { message: 'a', allow_live: true, confirm: true }); // sent
+  await c.close();
+  const users = new Set(mock.requests.map((r) => r.headers['x-user-id']));
+  assert.equal(mock.requests.filter((r) => r.path === '/quest/catalog').length, 3);
+  assert.equal(users.size, 1, 'one learner id across catalog reads, preparation and the turn');
+});
+
 test('the cap: 2 turns per process by default, an override, and a hard ceiling', async () => {
   const c = await connect(env());
   await c.call('learn_test_turn', { message: 'a', confirm: true });
