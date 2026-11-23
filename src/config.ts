@@ -10,11 +10,9 @@ export const API_VERSION = '2026-12-01';
 // The production API host. A developer testing on staging sets FOREVERLEARNING_BASE_URL.
 export const DEFAULT_BASE_URL = 'https://developers-api.foreverlearning.ai/v1';
 
-// Free test attempts per workspace, for the life of the workspace (the guide, "What counts as a turn").
-// The developer lane confirms the number: 20 today. It becomes 50 with the developer lane's
-// allowance release. Existing workspaces keep the allowance they enrolled under, so the tool
-// states this as "your workspace's free test attempts".
-export const FREE_TEST_ATTEMPTS = 20;
+// Free test attempts: no number lives here. Workspaces can hold different allowances (those
+// enrolled at one figure keep it until moved), so the tool names a number only when Learn's own
+// response carries it (see testAllowance in learn/client.ts); otherwise it names none.
 
 // The price of a turn that succeeds, as the public copy says it. The live price shown to the
 // developer is read from GET /v1/quest/catalog for their own assignment.

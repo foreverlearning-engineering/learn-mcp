@@ -3,7 +3,7 @@
 // only to the Learn API host and never appears in anything these tools return.
 import { McpServer, acceptedContent, inputRequired, inputResponse, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
-import { CONFIRM_TIMEOUT_MS, DEFAULT_BASE_URL, FREE_TEST_ATTEMPTS, PRICE_LINE, maxTurns } from '../config.ts';
+import { CONFIRM_TIMEOUT_MS, DEFAULT_BASE_URL, PRICE_LINE, maxTurns } from '../config.ts';
 import { LearnError, lookupRequest, prepareSession, readCatalog, redact, sendTurn, settings, type Catalog, type Kind, type Lookup, type TurnResult } from './client.ts';
 import { loadProject, saveProject } from './state.ts';
 
@@ -40,7 +40,9 @@ export function costLine(catalog: Catalog): string {
     const price = catalog.price_micro_usd === null ? '5¢' : dollars(catalog.price_micro_usd);
     return 'This is a live key: the turn costs ' + price + ' from your workspace balance if it succeeds (' + PRICE_LINE + '). A turn that fails costs nothing.';
   }
-  return 'In test mode this turn uses 1 of your workspace\'s ' + FREE_TEST_ATTEMPTS + ' free test attempts. They last for the life of the workspace, are shared by all its keys and never reset; '
+  // A number only when Learn's own response carries the workspace's allowance.
+  const allowance = catalog.test_allowance === null ? '' : catalog.test_allowance + ' ';
+  return 'In test mode this turn uses 1 of your workspace\'s ' + allowance + 'free test attempts. They last for the life of the workspace, are shared by all its keys and never reset; '
     + 'a turn that fails after it is sent also uses one. Nothing is charged. An opening, when you ask for one, is a turn of its own; this tool never ends the session, so it never spends an attempt on a closeout.';
 }
 
@@ -72,7 +74,7 @@ export function explain(e: LearnError): string {
         KEY_BUDGET_EXHAUSTED: "The key's budget is used up. Raise it in the developer console.",
         DEVELOPER_OPERATION_REFUSED: "Learn refused the request. Many causes share this one answer on purpose: the key's scopes, the assignment (FOREVERLEARNING_ASSIGNMENT_ID), the session or the learner. If the saved test session was closed or belongs to another key, this tool has forgotten it: the next test turn prepares a new one, free.",
         DEVELOPER_POLICY_BLOCKED: 'The safety screening refused the message before it reached the tutor. Nothing was charged. In an app, show your own short message, such as "I can\'t help with that message. Try asking another way.", never the refusal\'s own text.',
-        DEVELOPER_WORKLOAD_REVIEW_REQUIRED: "Every builder's free test turns on this environment draw on one shared pool, and the pool is spent, so test turns are refused for now. Nothing was charged.",
+        DEVELOPER_WORKLOAD_REVIEW_REQUIRED: 'Learn has paused new turns for now, for a reason on its own side. You did nothing wrong, and nothing was charged. Stop here and try again later.',
         REQUEST_IN_PROGRESS: 'The original request is still running. Look it up again shortly.',
         REQUEST_FAILED: 'The original request failed and was not charged.',
         IDEMPOTENCY_KEY_REUSED: 'The idempotency key was already used for a different request.',
@@ -118,7 +120,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     title: 'Send one Learn test turn',
     description: 'Send ONE real test turn to the Learn API with the developer\'s own key (from this server\'s environment), as one stable test learner for this project, '
       + 'and return Learn\'s reply exactly as written (both parts), its safety status and its receipt. '
-      + 'Cost: in test mode each turn uses 1 of the workspace\'s ' + FREE_TEST_ATTEMPTS + ' free test attempts (for the life of the workspace, never reset); '
+      + 'Cost: in test mode each turn uses 1 of the workspace\'s free test attempts (for the life of the workspace, never reset); '
       + 'with a live key, ' + PRICE_LINE + ', and a live key is refused unless allow_live is true. Preparing the session is free; the session is never ended by this tool. '
       + 'First call it without confirm to see the exact cost, tell the developer, and call again with confirm: true only after they agree in the conversation. '
       + 'At most ' + maxTurns(env).limit + ' turns per server run. It never retries: if a turn is not confirmed, use learn_lookup_request with the request id it returns. '

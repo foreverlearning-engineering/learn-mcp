@@ -9,7 +9,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createLearnServer } from '../src/server.ts';
 import { resetBudgetForTests } from '../src/learn/turn.ts';
-import { maxTurns, HARD_MAX_TURNS, FREE_TEST_ATTEMPTS } from '../src/config.ts';
+import { maxTurns, HARD_MAX_TURNS } from '../src/config.ts';
 import { loadSnapshot } from '../src/snapshot.ts';
 import { startDocsHttp } from '../src/http.ts';
 import { startMock, TEST_KEY, REPLY, type Mock } from './mock-learn.ts';
@@ -73,7 +73,8 @@ test('without confirm, the tool states the cost and sends nothing', async () => 
   const r = await c.call('learn_test_turn', { message: 'I am stuck on 3x + 5 = 20.' });
   assert.equal(r.isError, undefined);
   assert.match(r.text, /Not sent yet/);
-  assert.match(r.text, new RegExp(FREE_TEST_ATTEMPTS + ' free test attempts'));
+  assert.match(r.text, /uses 1 of your workspace's free test attempts/);
+  assert.doesNotMatch(r.text, /\d+ free test attempts/, 'no allowance number unless Learn sends one');
   assert.equal(chats().length, 0);
   assert.equal(prepares().length, 0);
   await c.close();
@@ -198,7 +199,9 @@ test('refusals are explained and not retried', async () => {
   assert.match(rate.text, /429 DEVELOPER_CAPACITY_LIMIT/);
   assert.match(rate.text, /after 60 seconds/);
   const pool = await c.call('learn_test_turn', { message: 'b', confirm: true });
-  assert.match(pool.text, /shared pool/);
+  assert.match(pool.text, /403 DEVELOPER_WORKLOAD_REVIEW_REQUIRED: Learn has paused new turns for now, for a reason on its own side/);
+  assert.match(pool.text, /You did nothing wrong, and nothing was charged\. Stop here and try again later\./);
+  assert.match(pool.text, /never sends a turn again on its own/);
   assert.equal(chats().length, 2, 'each sent once');
   await c.close();
 });

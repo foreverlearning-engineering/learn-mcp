@@ -4,7 +4,7 @@
 //   docs-only: no key and no Learn calls at all. What the hosted Streamable HTTP address serves.
 // A second product (the Conversations API) plugs in later as one more register call.
 import { McpServer } from '@modelcontextprotocol/server';
-import { CONFIRM_TIMEOUT_MS, FREE_TEST_ATTEMPTS, SERVER_NAME, SERVER_VERSION } from './config.ts';
+import { CONFIRM_TIMEOUT_MS, SERVER_NAME, SERVER_VERSION } from './config.ts';
 import { registerDocs } from './learn/docs.ts';
 import { registerTurnTools } from './learn/turn.ts';
 import { loadSnapshot, snapshotDate, type Snapshot } from './snapshot.ts';
@@ -26,7 +26,7 @@ export function instructions(s: Snapshot, mode: Mode): string {
     '- learn_guide and learn_contract: the integration guide, its runnable examples and the OpenAPI contract. Use only what they describe. If they do not answer something, say so; never invent an endpoint, field or behaviour.',
   ];
   if (mode === 'full') {
-    lines.push('- learn_test_turn: one real test turn with the developer\'s own key, for a quick check. It costs a free test attempt (' + FREE_TEST_ATTEMPTS + ' per workspace, never reset) or, on a live key, 5¢ per turn that succeeds. '
+    lines.push('- learn_test_turn: one real test turn with the developer\'s own key, for a quick check. It costs one of the workspace\'s free test attempts (they never reset) or, on a live key, 5¢ per turn that succeeds. '
       + 'Ask the developer before each one. Show Learn\'s reply exactly as written. learn_lookup_request looks up a turn that was not confirmed, free.');
     lines.push('- The developer\'s key stays in their environment. Never ask them to paste it into the conversation, and never write it into a file, a page or a command.');
   } else {

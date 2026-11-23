@@ -110,7 +110,15 @@ async function call(url: string, init: RequestInit, timeoutMs: number): Promise<
   }
 }
 
-export interface Catalog { mode: string; price_micro_usd: number | null; currency: string; postures: string[]; release_id: string; content_release: string }
+export interface Catalog { mode: string; price_micro_usd: number | null; currency: string; postures: string[]; release_id: string; content_release: string; test_allowance: number | null }
+
+// The workspace's own free-test allowance, when a response carries it. As of 2026-11-23 the
+// contract defines no such field in the catalog (or elsewhere), so this returns null and the
+// tool names no number. When the developer lane's release adds one, read it here, by the name
+// the contract gives it, and nowhere else.
+function testAllowance(_body: Record<string, any>): number | null {
+  return null;
+}
 
 // GET /v1/quest/catalog: the assignment's mode (test or live), postures and price. Free.
 export async function readCatalog(s: Settings, learnerId: string): Promise<Catalog> {
@@ -124,6 +132,7 @@ export async function readCatalog(s: Settings, learnerId: string): Promise<Catal
     postures: Array.isArray(body.postures) ? body.postures.map(String) : [],
     release_id: String(body.release_id ?? ''),
     content_release: String(body.content_release ?? ''),
+    test_allowance: testAllowance(body),
   };
 }
 
