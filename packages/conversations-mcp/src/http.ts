@@ -20,7 +20,7 @@ export function createDocsHandler(options: DocsHandlerOptions = {}): { fetch: (r
   const path = options.path ?? '/mcp';
   const hosts = options.allowedHosts ?? localhostAllowedHostnames();
   // A fresh server per request: stateless, nothing shared, no key anywhere.
-  const mcp = createMcpHandler(() => createConversationsServer({ snapshot }));
+  const mcp = createMcpHandler(() => createConversationsServer({ mode: 'docs-only', snapshot, env: {} }));
   return {
     mcp,
     fetch: async (request: Request) => {

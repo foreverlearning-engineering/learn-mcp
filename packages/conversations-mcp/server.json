@@ -19,7 +19,29 @@
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
-      }
+      },
+      "environmentVariables": [
+        {
+          "name": "FOREVERLEARNING_API_KEY",
+          "description": "Your Conversations API server key, from My APIs in the developer console. Needed only for paid test turns; the docs tools work without it.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FOREVERLEARNING_ASSIGNMENT_ID",
+          "description": "Your Conversations API assignment id, from My APIs. Needed with the key.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "FOREVERLEARNING_BASE_URL",
+          "description": "The API host, ending in /v1.",
+          "isRequired": false,
+          "default": "https://developers-api.foreverlearning.ai/v1",
+          "format": "string"
+        }
+      ]
     }
   ]
 }
