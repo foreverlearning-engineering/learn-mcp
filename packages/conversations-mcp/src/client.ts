@@ -1,6 +1,6 @@
 // A small Conversations API client for the test-turn tools, after the starter's conversations.ts
 // (conversations-room-starter/01-first-room). It never retries: a turn is sent once, and an
-// unconfirmed turn is reported with its request id for a free lookup. It has no call that ends a
+// unconfirmed turn is reported with its request id for a lookup (no charge). It has no call that ends a
 // session. The key is read from the environment at call time, sent only in the Authorization
 // header, and removed from every message this module produces.
 import { randomUUID } from 'node:crypto';
@@ -121,7 +121,7 @@ async function call(url: string, init: RequestInit, timeoutMs: number): Promise<
 export interface Room { room_id: string; title: string; modes: string[]; min_participants: number; recommended_personas: string[]; topic_consent_required: boolean; default_tier: string }
 export interface Catalog { content_release: string; rooms: Room[]; personas: { persona_id: string; display_name: string }[] }
 
-// GET /v1/conversation/catalog: the rooms and people this key can use. Free.
+// GET /v1/conversation/catalog: the rooms and people this key can use. No charge.
 export async function readCatalog(s: Settings, userId: string): Promise<Catalog> {
   const all: Catalog = { content_release: '', rooms: [], personas: [] };
   let cursor: string | null = null;
@@ -140,7 +140,7 @@ export async function readCatalog(s: Settings, userId: string): Promise<Catalog>
 
 export interface Prepared { session_id: string; cast: { display_name: string; role: string }[] }
 
-// POST /v1/conversation/sessions: prepare a session in a ready-made room. Nothing is generated; free.
+// POST /v1/conversation/sessions: prepare a session in a ready-made room. Nothing is generated; no charge.
 export async function prepareRoom(s: Settings, userId: string, room: { room_id: string; mode: string; persona_id: string }): Promise<Prepared> {
   const body = { setup: { kind: 'room', room_id: room.room_id, mode: room.mode, participants: [{ persona_id: room.persona_id }] } };
   const response = await call(s.base + '/conversation/sessions', { method: 'POST', headers: headers(s, userId, randomUUID()), body: JSON.stringify(body) }, READ_TIMEOUT_MS);
@@ -228,7 +228,7 @@ export type Lookup =
   | { status: 'committed'; request_id: string; session_id: string; conversation: string; display: string; safety: Safety; units: number; amount_micro_usd: number; settlement: string }
   | { status: 'in_progress' | 'unavailable'; request_id: string; session_id: string };
 
-// GET /v1/requests/<id>: the original result of an accepted request, read as the same user. Free.
+// GET /v1/requests/<id>: the original result of an accepted request, read as the same user. No charge.
 export async function lookupRequest(s: Settings, userId: string, requestId: string): Promise<Lookup> {
   const response = await call(s.base + '/requests/' + encodeURIComponent(requestId), { headers: headers(s, userId) }, READ_TIMEOUT_MS);
   if (!response.ok) throw await refusal(response);

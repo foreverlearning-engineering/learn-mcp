@@ -86,7 +86,8 @@ test('the cost comes first: without confirm, nothing at all is sent', async () =
   assert.match(plan.text, /^Not sent yet/);
   assert.match(plan.text, /\$0\.03/);
   assert.match(plan.text, /3¢ per text turn/);
-  assert.match(plan.text, /no free test turns/);
+  assert.match(plan.text, /Every test turn is charged/);
+  assert.doesNotMatch(plan.text, /\bfree\b/i, 'nothing says free until production serves the free test turns');
   assert.match(plan.text, /never ends the session/);
   assert.match(plan.text, /Call again with confirm: true only after they agree/);
   assert.equal(mock.requests.length, 0, 'not even a free read');

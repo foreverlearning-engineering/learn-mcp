@@ -24,11 +24,11 @@ export function instructions(s: Snapshot, mode: Mode = 'docs-only'): string {
     '- conversations_kits and conversations_kit: the Build with Conversations kits. When the developer wants conversation practice, a practice room, roleplay practice or AI characters to talk with in an app, start with conversations_kits. '
       + (verified ? 'Follow the matching kit\'s verified prompt as written.' : NO_KIT_YET),
     '- conversations_guide and conversations_contract: the integration guide, its runnable examples and the OpenAPI contract. Use only what they describe. If they do not answer something, say so; never invent an endpoint, field or behaviour.',
-    '- Cost: every opening, turn and closeout is a billable text turn (' + PRICE_LINE + '); preparing a room and reading saved practice are free. There are no free test turns. Tell the developer before their app sends turns.',
+    '- Cost: every opening, turn and closeout is a billable text turn (' + PRICE_LINE + '); preparing a room and reading saved practice add no charge. Every test turn is charged at the same price. Tell the developer before their app sends turns.',
   ];
   if (mode === 'full') {
     lines.push('- conversations_test_turn: one real, paid test turn with the developer\'s own key, for a quick check. Call it first without confirm to get the cost, ask the developer, and confirm only after they agree. '
-      + 'A live key (real money) also needs allow_live, only on the developer\'s word. Show the reply exactly as written. conversations_lookup_request looks up a turn that was not confirmed, free.');
+      + 'A live key (real money) also needs allow_live, only on the developer\'s word. Show the reply exactly as written. conversations_lookup_request looks up a turn that was not confirmed, at no charge.');
   } else {
     lines.push('- This is the docs-only mode: it sends no turns. To test with a key, the developer runs the npm package, which keeps the key in their own environment.');
   }

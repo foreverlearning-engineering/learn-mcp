@@ -12,8 +12,8 @@ export const API_VERSION = '2026-12-01';
 export const DEFAULT_BASE_URL = 'https://developers-api.foreverlearning.ai/v1';
 export const STAGING_BASE_URL = 'https://developers-api-staging.foreverlearning.ai/v1';
 
-// The price, as the public copy says it. There is no free test allowance for the Conversations API
-// today, so every turn is paid; the opening and the closeout are turns too.
+// The price, as the public copy says it. Every turn is paid until the developer lane's test-turn
+// allowance (Terry's decision 5) is confirmed on production; the opening and the closeout are turns too.
 export const PRICE_LINE = '3¢ per text turn';
 export const TEXT_TURN_MICRO_USD = 30_000;
 

@@ -34,13 +34,13 @@ Run `conversations-mcp --docs-only` for the docs alone, with no key read at all.
 | `conversations_guide` | The integration guide, whole or by topic (`setup`, `turns`, `characters`, `reads`, `voice`, `privacy`, `pricing`), or a runnable example. |
 | `conversations_contract` | The operations a Conversations integration uses, one operation or schema definition with its references filled in, or a whole contract file. |
 | `conversations_test_turn` | One real, paid test turn with your key: the room's opening, or one message. It states the cost first and sends only on your confirmation; a live key (real money) also needs `allow_live`. At most 2 a run. It never retries and never ends the session. The reply comes back exactly as written: each character's line, the Coach's note, the safety status and the receipt. |
-| `conversations_lookup_request` | Look up a turn that was not confirmed, by its request id. Free. |
+| `conversations_lookup_request` | Look up a turn that was not confirmed, by its request id. No charge. |
 
 Resources: `conversations://guide`, `conversations://guide/{topic}`, `conversations://contract/{file}`, `conversations://examples/{file}`, `conversations://snapshot`.
 
 ## Cost
 
-The docs tools cost nothing. A test turn is a real turn: 3¢ per text turn, from your workspace balance (on staging, its staging test balance). There are no free test turns. The app you build pays per turn too: 3¢ per text turn, with every character and the Coach included, and +5¢ for spoken responses. The opening and the closeout are billable turns. Preparing a room and reading saved practice, debriefs and Insights add no charge.
+The docs tools cost nothing. A test turn is a real turn: 3¢ per text turn, from your workspace balance (on staging, its staging test balance). The app you build pays per turn too: 3¢ per text turn, with every character and the Coach included, and +5¢ for spoken responses. The opening and the closeout are billable turns. Preparing a room and reading saved practice, debriefs and Insights add no charge.
 
 ## Docs snapshot
 
