@@ -128,7 +128,7 @@ Run `npx -y @foreverlearning/learn-mcp` as a stdio server, with `FOREVERLEARNING
 
 ## Test turns: what they cost
 
-- **Test mode:** each test turn uses one of your workspace's 20 free test attempts. They last for the life of the workspace, are shared by all its keys, and never reset. A turn that fails after it is sent also uses one.
+- **Test mode:** each test turn uses one of your workspace's 50 free test attempts. They last for the life of the workspace, are shared by all its keys, and never reset. A turn that fails after it is sent also uses one.
 - **Live mode:** 5¢ per turn that succeeds, from your balance. A turn that fails costs nothing. The server refuses a live key unless you tell your assistant to use it.
 - **Before every turn**, your assistant shows you the cost and asks. Where your coding tool supports it, you also confirm in a dialog.
 - **At most 2 test turns** each time the server starts. Set `LEARN_MCP_MAX_TURNS` (up to 10) for more.
