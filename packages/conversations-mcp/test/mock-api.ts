@@ -48,9 +48,10 @@ function json(res: ServerResponse, status: number, body: object, headers: Record
 export async function startMock(): Promise<Mock> {
   let turn = 0;
   let prepared = 0;
+  const opened = new Set<string>();
   const mock: Mock = {
     url: '', requests: [], chat: [], lookup: 'committed', close: async () => {},
-    reset() { turn = 0; prepared = 0; this.requests.length = 0; this.chat = []; this.lookup = 'committed'; },
+    reset() { turn = 0; prepared = 0; opened.clear(); this.requests.length = 0; this.chat = []; this.lookup = 'committed'; },
   };
   const server: Server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     let raw = '';
@@ -66,6 +67,7 @@ export async function startMock(): Promise<Mock> {
         schema: 'fl.conversation.catalog.v1', content_release: 'mock-content', next_cursor: null, request_id: 'req_cat',
         rooms: [
           { room_id: 'S01', title: 'Direct Feedback To A Report', category_id: 'work', description: 'x', modes: ['guided', 'simulation', 'freeform'], min_participants: 1, max_participants: 2, recommended_personas: ['jon_guarded_report'], coach_lenses: [], tiers: ['standard'], default_tier: 'standard', topic_consent_required: false },
+          { room_id: 'S22', title: 'Interview Practice', category_id: 'work', description: 'x', modes: ['guided', 'simulation', 'freeform'], min_participants: 1, max_participants: 2, recommended_personas: ['riley_analyst'], coach_lenses: [], tiers: ['standard'], default_tier: 'standard', topic_consent_required: false },
           { room_id: 'S75', title: 'Telling Your Partner About A Diagnosis', category_id: 'relationships', description: 'x', modes: ['guided'], min_participants: 1, max_participants: 1, recommended_personas: ['sam_partner'], coach_lenses: [], tiers: ['standard', 'gentle'], default_tier: 'gentle', topic_consent_required: true },
         ],
         personas: [{ persona_id: 'jon_guarded_report', display_name: 'Jon', role: 'Your direct report', role_family: 'work' }, { persona_id: 'sam_partner', display_name: 'Sam', role: 'Your partner', role_family: 'relationships' }],
@@ -77,6 +79,9 @@ export async function startMock(): Promise<Mock> {
       return json(res, 200, { schema: 'fl.conversation.session.v1', session_id: 'sess_mock_' + prepared, state: 'prepared', mode: body.setup.mode, room_id: body.setup.room_id, cast: [{ speaker_id: 'spk_jon', persona_id: 'jon_guarded_report', display_name: 'Jon', role: 'Your direct report', seat: 1 }] });
     }
     if (req.method === 'POST' && path === '/chat') {
+      // As on staging (probe, 2026-11-24): a learner turn before the opening is refused before admission.
+      if (body.conversation?.operation === 'turn' && !opened.has(body.session_id)) return json(res, 403, { error: true, code: 'DEVELOPER_OPERATION_REFUSED', message: 'Operation not permitted', request_id: 'req_refused' });
+      if (body.conversation?.operation === 'opening') opened.add(body.session_id);
       turn += 1;
       const scenario = mock.chat.shift() ?? 'ok';
       const requestId = 'req_mock_' + turn;

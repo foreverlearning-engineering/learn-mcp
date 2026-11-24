@@ -159,7 +159,7 @@ test('at most 2 turns per server run; the setting cannot pass the ceiling', asyn
 test('never a retry: a failed turn is sent once and reported as not charged', async () => {
   mock.chat = ['error-event'];
   const c = await connect(env());
-  const r = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+  const r = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   assert.equal(r.isError, true);
   assert.match(r.text, /failed before any reply was shown \(GENERATION_FAILED\)/);
   assert.match(r.text, /not charged/);
@@ -185,7 +185,7 @@ test('an unconfirmed turn is never resent: it returns the request id for a free 
     mock.reset();
     mock.chat = [scenario];
     const c = await connect(env());
-    const r = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+    const r = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
     assert.equal(r.isError, true);
     assert.match(r.text, /not confirmed/);
     assert.match(r.text, /conversations_lookup_request with request_id "req_mock_1"/);
@@ -211,12 +211,12 @@ test('the lookup is free and shows the saved reply as written, or says it is sti
 test('refusals are explained, and a session the API no longer knows is forgotten', async () => {
   mock.chat = ['refused-429', 'refused-404-session'];
   const c = await connect(env({ CONVERSATIONS_MCP_MAX_TURNS: '3' }));
-  const busy = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+  const busy = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   assert.match(busy.text, /429 DEVELOPER_CAPACITY_LIMIT/);
   assert.match(busy.text, /retry can succeed after 60 seconds/);
   assert.match(busy.text, /nothing was charged/);
-  await c.call('conversations_test_turn', { message: 'b', confirm: true, allow_live: true });
-  await c.call('conversations_test_turn', { message: 'c', confirm: true, allow_live: true });
+  await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
+  await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   assert.equal(prepares().length, 2, 'a new session after the 404');
   assert.equal(chats().length, 3);
   await c.close();
@@ -225,7 +225,7 @@ test('refusals are explained, and a session the API no longer knows is forgotten
 test('an unstructured turn keeps its text with no invented speaker; a critical turn shows no charge', async () => {
   mock.chat = ['unstructured', 'ok-critical'];
   const c = await connect(env());
-  const r = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+  const r = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   assert.match(r.text, /No speaker labels on this turn/);
   assert.match(r.text, /Never invent a speaker/);
   const crit = await c.call('conversations_test_turn', { message: 'b', confirm: true, allow_live: true });
@@ -265,6 +265,30 @@ test('where the client supports it, the developer confirms in a dialog', async (
   }
 });
 
+test('a message before the opening is not sent: the opening comes first', async () => {
+  const c = await connect(env());
+  const r = await c.call('conversations_test_turn', { message: 'Hello Jon', confirm: true, allow_live: true });
+  assert.equal(r.isError, true);
+  assert.match(r.text, /has no opening yet/);
+  assert.match(r.text, /opening: true/);
+  assert.equal(mock.requests.length, 0);
+  await c.close();
+});
+
+test('a different room starts a new session there; the earlier one stays open', async () => {
+  const c = await connect(env());
+  await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
+  const plan = await c.call('conversations_test_turn', { opening: true, room: 'Interview Practice', allow_live: true });
+  assert.match(plan.text, /in a new test session in the room "Interview Practice"/);
+  assert.match(plan.text, /earlier session, in the room "Direct Feedback To A Report", stays open/);
+  const r = await c.call('conversations_test_turn', { opening: true, room: 'Interview Practice', confirm: true, allow_live: true });
+  assert.equal(r.isError, undefined, r.text);
+  assert.equal(prepares().length, 2);
+  assert.equal(prepares()[1].body.setup.room_id, 'S22');
+  assert.equal(chats().length, 2);
+  await c.close();
+});
+
 test('the test never ends a session: no closeout, discard or delete was ever sent', () => {
   assert.equal(closeouts().length, 0);
 });
@@ -272,7 +296,7 @@ test('the test never ends a session: no closeout, discard or delete was ever sen
 test('the key never appears in any output or saved file', async () => {
   mock.chat = ['refused-401-echo-key'];
   const c = await connect(env());
-  const r = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+  const r = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   assert.equal(r.isError, true);
   assert.match(r.text, /401 DEVELOPER_AUTHENTICATION_REQUIRED/);
   assert.match(r.text, /<redacted-key>/);

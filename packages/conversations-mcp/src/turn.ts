@@ -141,6 +141,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     title: 'Send one Conversations test turn',
     description: 'Send ONE real test turn to the Conversations API with the developer\'s own key (from this server\'s environment): the room\'s opening, or one message from the user. '
       + 'It uses one stable test user and one practice session for this project, in a ready-made room (default "' + DEFAULT_ROOM_TITLE + '"), and returns each character\'s line, the Coach\'s note, the safety status and the receipt exactly as written. '
+      + 'A session starts with the room\'s opening (opening: true); a message is sent only after it. '
       + 'Cost: every turn is paid, ' + PRICE_LINE + ' (the opening is a turn), and every test turn is charged. On staging it is paid from the workspace\'s staging test balance; on any other host it is real money, and the call is refused unless allow_live is true. '
       + 'Preparing the session adds no charge, and this tool never ends the session. '
       + 'First call it without confirm to see the exact cost, tell the developer, and call again with confirm: true only after they agree in the conversation. '
@@ -149,7 +150,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     inputSchema: z.object({
       message: z.string().max(10000).optional().describe('What the user says in the room, as they would say it. Use a made-up situation, never real personal data.'),
       opening: z.boolean().default(false).describe('Ask for the room\'s opening (the characters speak first) instead of sending a message. It is a turn of its own, once per session.'),
-      room: z.string().max(200).optional().describe('The title of a ready-made room, used when this project has no test session yet (default "' + DEFAULT_ROOM_TITLE + '"). Rooms that need the user\'s consent are not used.'),
+      room: z.string().max(200).optional().describe('The title of a ready-made room (default "' + DEFAULT_ROOM_TITLE + '", or the room of this project\'s open session). A different room starts a new session there, which adds no charge; the earlier session stays open. Rooms that need the user\'s consent are not used.'),
       confirm: z.boolean().default(false).describe('Set to true only after the developer has agreed to the cost in this conversation.'),
       allow_live: z.boolean().default(false).describe('Set to true only when the developer has said to use a live key, which spends real money.'),
     }),
@@ -175,18 +176,22 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
 
     const { key: projectKey, state } = loadProject(s.base, s.assignment, env);
     const roomTitle = (room ?? '').trim() || state.room_title || DEFAULT_ROOM_TITLE;
-    if (state.session_id && state.room_title && roomTitle !== state.room_title) {
-      return out('Not sent: this project\'s test session is in the room "' + state.room_title + '". This tool keeps one session per project and never ends it, '
-        + 'and whether preparing a new session closes the open one (a billed closeout) is not documented. Leave room out to use the open session.', true);
+    // A different room means a new session. Preparing one leaves the earlier session open, with no
+    // closeout and no charge (seen on staging, 2026-11-24), so the earlier one is simply set aside.
+    const newRoom = Boolean(state.session_id && state.room_title && roomTitle.toLowerCase() !== state.room_title.toLowerCase());
+    const sessionOpen = Boolean(state.session_id) && !newRoom;
+    if (opening && sessionOpen && state.opened) return out('Not sent: this project\'s test session already has its opening. Send a message instead.', true);
+    // The opening comes first: a message before it is refused (403), so it is not sent at all.
+    if (!opening && !(sessionOpen && state.opened)) {
+      return out('Not sent: ' + (sessionOpen ? 'this project\'s test session' : 'a new test session') + ' has no opening yet, and a message before the opening is refused. Send the room\'s opening first (opening: true).', true);
     }
-    if (opening && state.session_id && state.opened) return out('Not sent: this project\'s test session already has its opening. Send a message instead.', true);
 
     const cost = costLine(where);
     const plan = [
       'Not sent yet. This would send one test turn to the Conversations API:',
       '- ' + (opening ? 'the room\'s opening (the characters speak first; no message from the user)' : 'the user\'s message: "' + (message ?? '').trim() + '"'),
-      '- as test user ' + state.user_id + ', ' + (state.session_id ? 'in this project\'s open test session, room "' + state.room_title + '"' : 'in a new test session in the room "' + roomTitle + '" (reading the catalog and preparing the session add no charge)'),
-      ...(!opening && !(state.session_id && state.opened) ? ['- the session has no opening yet: the guide opens a room with its opening before the first message (call with opening: true for that)'] : []),
+      '- as test user ' + state.user_id + ', ' + (sessionOpen ? 'in this project\'s open test session, room "' + state.room_title + '"' : 'in a new test session in the room "' + roomTitle + '" (reading the catalog and preparing the session add no charge)'),
+      ...(newRoom ? ['- this project\'s earlier session, in the room "' + state.room_title + '", stays open: preparing a new one does not close it and adds no charge'] : []),
       '- ' + cost,
       '- test turns this server has sent: ' + budget.sent + ' of ' + cap.limit,
       'Tell the developer this and ask whether to send it. Call again with confirm: true only after they agree.',
@@ -204,8 +209,8 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       if (answer.send !== true) return out('Not sent: the developer chose not to send the test turn.');
     }
 
-    // Prepare the project's session once (no charge), in a ready-made room that needs no consent.
-    if (!state.session_id) {
+    // Prepare the project's session once per room (no charge), in a ready-made room that needs no consent.
+    if (!sessionOpen) {
       let catalog: Catalog;
       try {
         catalog = await readCatalog(s, state.user_id);
