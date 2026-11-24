@@ -1,0 +1,68 @@
+{
+  "name": "@foreverlearning/conversations-mcp",
+  "version": "0.1.0",
+  "description": "The Conversations API for coding assistants: its guide, contract and Build with Conversations kits, for putting conversation practice rooms inside your product.",
+  "mcpName": "ai.foreverlearning/conversations",
+  "license": "MIT",
+  "author": "ForeverLearning AI",
+  "homepage": "https://developers.foreverlearning.ai/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foreverlearning-engineering/learn-mcp.git",
+    "directory": "packages/conversations-mcp"
+  },
+  "bugs": {
+    "email": "developers@foreverlearning.ai"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "conversations-api",
+    "roleplay",
+    "conversation-practice",
+    "soft-skills",
+    "sales-training",
+    "interview-practice",
+    "language-practice"
+  ],
+  "type": "module",
+  "bin": {
+    "conversations-mcp": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "default": "./dist/http.js"
+    }
+  },
+  "files": [
+    "dist",
+    "snapshot",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test --test-concurrency=1 test/*.test.ts",
+    "snapshot": "node scripts/snapshot.mjs",
+    "start": "node dist/cli.js",
+    "prepack": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

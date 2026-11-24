@@ -1,0 +1,9 @@
+{
+  "comment": "The Build with Conversations kits the server can offer. A kit is bundled only when the kits record marks it VERIFIED and its developer-site page carries the same prompt word for word; otherwise it is listed as coming soon. The page addresses are proposed to the developer lane (PLAN.md section 8, item 10) and change here when it rules.",
+  "kits": [
+    { "id": "01-first-room", "step": "Step 1", "title": "Your first practice room", "page": "/build/conversations/1/", "prompt": "first-practice-room" },
+    { "id": "02-close-and-debrief", "step": "Step 2", "title": "Close and debrief", "page": "/build/conversations/2/" },
+    { "id": "embed", "step": "Recipe", "title": "Embed a practice room in your app", "page": "/build/conversations/embed/", "prompt": "embed-practice-room" },
+    { "id": "interview", "step": "Recipe", "title": "Interview practice", "page": "/build/conversations/interview/" }
+  ]
+}

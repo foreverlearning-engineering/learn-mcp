@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "ai.foreverlearning/conversations",
+  "title": "Conversations API",
+  "description": "Build conversation practice rooms with the Conversations API: its guide, contract and verified kits.",
+  "version": "0.1.0",
+  "websiteUrl": "https://developers.foreverlearning.ai/",
+  "repository": {
+    "url": "https://github.com/foreverlearning-engineering/learn-mcp",
+    "source": "github",
+    "subfolder": "packages/conversations-mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@foreverlearning/conversations-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
