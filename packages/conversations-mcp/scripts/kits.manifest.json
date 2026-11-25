@@ -3,6 +3,7 @@
   "kits": [
     { "id": "01-first-room", "step": "Step 1", "title": "Your first practice room", "page": "/build/conversations/1/", "prompt": "first-practice-room" },
     { "id": "02-close-and-debrief", "step": "Step 2", "title": "Close and debrief", "page": "/build/conversations/2/" },
+    { "id": "03-room-and-cast", "step": "Step 3", "title": "Pick the room and the cast", "page": "/build/conversations/3/" },
     { "id": "embed", "step": "Recipe", "title": "Embed a practice room in your app", "page": "/build/conversations/embed/", "prompt": "embed-practice-room" },
     { "id": "interview", "step": "Recipe", "title": "Interview practice", "page": "/build/conversations/interview/" }
   ]

@@ -30,7 +30,7 @@ export function instructions(s: Snapshot, mode: Mode): string {
       + 'Ask the developer before each one. Show Learn\'s reply exactly as written. learn_lookup_request looks up a turn that was not confirmed, free.');
     lines.push('- The developer\'s key stays in their environment. Never ask them to paste it into the conversation, and never write it into a file, a page or a command.');
   } else {
-    lines.push('- This is the docs-only address: it sends no turns. To test with a key, the developer installs the npm package, which keeps the key in their own environment.');
+    lines.push('- This hosted connection provides documentation without a local installation or API key. It sends no turns. Use the developer console Sandbox for real practice, or the optional local package for test-turn tools.');
   }
   return lines.join('\n');
 }
