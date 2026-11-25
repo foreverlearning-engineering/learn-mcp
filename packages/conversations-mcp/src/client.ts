@@ -16,9 +16,10 @@ export function settings(env: NodeJS.ProcessEnv = process.env): Settings {
   };
 }
 
-// Where a turn's money comes from. Every Conversations publication is live mode, so the catalog
-// cannot tell test from live; the host does. Staging spends a workspace's staging test balance.
-// Any other host, production included, spends real money: that is a live key.
+// Where a turn's money would come from. A key's assignment is in test mode (free attempts, no
+// money) or live (real money), and the catalog does not say which; only the receipt afterwards does.
+// Staging never spends real money (staging credit, or an attempt). Any other host, production
+// included, may be live, so it is treated as live until the receipt says otherwise.
 export type Environment = 'staging' | 'live';
 export function environmentOf(base: string): Environment {
   try {
@@ -53,7 +54,7 @@ export interface Turn {
   state: string;
   characters: Character[] | null;
 }
-export interface Meter { unit: string; units: number; amount_micro_usd: number; settlement: string }
+export interface Meter { unit: string; units: number; amount_micro_usd: number; settlement: string; charge_id: string | null; rate_version: string }
 export interface Receipt { request_id: string; session_id: string; content_release: string; text: Meter | null; audio: Meter | null }
 export interface TurnResult { request_id: string; session_id: string; turn: Turn; safety: Safety; receipt: Receipt }
 
@@ -225,7 +226,7 @@ export async function sendTurn(s: Settings, userId: string, input: TurnInput, id
 }
 
 export type Lookup =
-  | { status: 'committed'; request_id: string; session_id: string; conversation: string; display: string; safety: Safety; units: number; amount_micro_usd: number; settlement: string }
+  | { status: 'committed'; request_id: string; session_id: string; conversation: string; display: string; safety: Safety; units: number; amount_micro_usd: number; settlement: string; charge_id: string | null }
   | { status: 'in_progress' | 'unavailable'; request_id: string; session_id: string };
 
 // GET /v1/requests/<id>: the original result of an accepted request, read as the same user. No charge.
@@ -246,5 +247,6 @@ export async function lookupRequest(s: Settings, userId: string, requestId: stri
     units: Number(c.billable_units ?? 0),
     amount_micro_usd: Number(c.charge?.amount_micro_usd ?? c.amount_micro_usd ?? 0),
     settlement: String(c.settlement ?? ''),
+    charge_id: typeof c.charge?.charge_id === 'string' ? c.charge.charge_id : typeof c.charge_id === 'string' ? c.charge_id : null,
   };
 }

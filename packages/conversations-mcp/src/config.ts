@@ -12,8 +12,9 @@ export const API_VERSION = '2026-12-01';
 export const DEFAULT_BASE_URL = 'https://developers-api.foreverlearning.ai/v1';
 export const STAGING_BASE_URL = 'https://developers-api-staging.foreverlearning.ai/v1';
 
-// The price, as the public copy says it. Every turn is paid until the developer lane's test-turn
-// allowance (Terry's decision 5) is confirmed on production; the opening and the closeout are turns too.
+// The live price, as the public copy says it. Since 2026-11-24 production serves fifty free text
+// attempts per workspace on test assignments; a live assignment pays this price. The opening and the
+// closeout are turns too.
 export const PRICE_LINE = '3¢ per text turn';
 export const TEXT_TURN_MICRO_USD = 30_000;
 

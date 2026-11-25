@@ -33,14 +33,14 @@ Run `conversations-mcp --docs-only` for the docs alone, with no key read at all.
 | `conversations_starter_file` | One file of a kit's finished checkpoint in `conversations-room-starter` (MIT). |
 | `conversations_guide` | The integration guide, whole or by topic (`setup`, `turns`, `characters`, `reads`, `voice`, `privacy`, `pricing`), or a runnable example. |
 | `conversations_contract` | The operations a Conversations integration uses, one operation or schema definition with its references filled in, or a whole contract file. |
-| `conversations_test_turn` | One real, paid test turn with your key: the room's opening, or one message. It states the cost first and sends only on your confirmation; a live key (real money) also needs `allow_live`. At most 2 a run. It never retries and never ends the session. The reply comes back exactly as written: each character's line, the Coach's note, the safety status and the receipt. |
+| `conversations_test_turn` | One real test turn with your key: the room's opening, or one message. It states the cost first and sends only on your confirmation; on a production host it also needs `allow_live`, since it cannot tell a test key (free attempts) from a live one (real money). At most 2 a run. It never retries and never ends the session. The reply comes back exactly as written: each character's line, the Coach's note, the safety status and the receipt. |
 | `conversations_lookup_request` | Look up a turn that was not confirmed, by its request id. No charge. |
 
 Resources: `conversations://guide`, `conversations://guide/{topic}`, `conversations://contract/{file}`, `conversations://examples/{file}`, `conversations://snapshot`.
 
 ## Cost
 
-The docs tools cost nothing. A test turn is a real turn: 3¢ per text turn, from your workspace balance (on staging, its staging test balance). The app you build pays per turn too: 3¢ per text turn, with every character and the Coach included, and +5¢ for spoken responses. The opening and the closeout are billable turns. Preparing a room and reading saved practice, debriefs and Insights add no charge.
+The docs tools cost nothing. A test turn is a real turn. On a test assignment it uses one of your workspace's fifty free text attempts and no money; on a live assignment it is 3¢ per text turn from your workspace balance; on staging it uses staging credit, never real money. The app you build pays per turn too: 3¢ per text turn, with every character and the Coach included, and +5¢ for spoken responses. The opening and the closeout are billable turns, and a user's open session is closed, with its closeout, when their next session is opened. Preparing a room and reading saved practice, debriefs and Insights add no charge.
 
 ## Docs snapshot
 

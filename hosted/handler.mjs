@@ -36,8 +36,9 @@ export function createHostedDocsHandler({
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin) throw new Error('Use exact HTTP origins');
     return origin;
   }));
-  const learn = learnHandler({ allowedHosts, path: learnPath, snapshot: learnSnapshot });
-  const conversations = conversationsHandler({ allowedHosts, path: conversationsPath, snapshot: conversationsSnapshot });
+  // The same cap inside the SDK as around it, so no layer accepts more than the host intends.
+  const learn = learnHandler({ allowedHosts, path: learnPath, snapshot: learnSnapshot, maxRequestBodySize: maxRequestBytes });
+  const conversations = conversationsHandler({ allowedHosts, path: conversationsPath, snapshot: conversationsSnapshot, maxRequestBodySize: maxRequestBytes });
   const routes = new Map([[learnPath, learn], [conversationsPath, conversations]]);
   const health = { mode: 'docs-only', ...identity };
   return {

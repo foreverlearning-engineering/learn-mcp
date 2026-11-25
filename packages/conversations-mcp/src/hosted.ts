@@ -12,6 +12,8 @@ export interface DocsFetchOptions {
   allowedHosts: string[];
   // The path the MCP endpoint answers on.
   path?: string;
+  // The SDK's own cap on a request body, in bytes (a docs read needs far less than the default 64 KiB).
+  maxRequestBodySize?: number;
 }
 
 export interface DocsFetchHandler {
@@ -24,8 +26,10 @@ export function createDocsFetchHandler(options: DocsFetchOptions): DocsFetchHand
   if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) throw new Error('snapshot must be a parsed ' + SNAPSHOT_SCHEMA + ' object');
   if (!Array.isArray(allowedHosts) || !allowedHosts.length || allowedHosts.includes('*')) throw new Error('Explicit allowedHosts are required');
   const path = options.path ?? '/mcp';
+  const maxRequestBodySize = options.maxRequestBodySize ?? 65536;
+  if (!Number.isSafeInteger(maxRequestBodySize) || maxRequestBodySize < 1) throw new Error('Invalid maxRequestBodySize');
   // A fresh docs-only server per request: stateless, nothing shared, no key anywhere.
-  const mcp = createMcpHandler(() => createConversationsDocsServer(snapshot));
+  const mcp = createMcpHandler(() => createConversationsDocsServer(snapshot), { maxRequestBodySize });
   return {
     mcp,
     fetch: async (request: Request) => {

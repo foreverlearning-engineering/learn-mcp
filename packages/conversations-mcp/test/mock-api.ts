@@ -1,6 +1,9 @@
 // A local stand-in for the Conversations API, for the unit tests. It speaks the shapes the guide
 // and the contract describe (catalog, session preparation, the /chat event stream, request lookup)
 // and records every request it receives. It never calls anything outside this process.
+// Behaviour follows the developer platform's November 25 release: a turn before the opening is
+// 409 CONVERSATION_OPENING_REQUIRED, an unknown lookup is 404 DEVELOPER_REQUEST_NOT_FOUND, and a
+// settled receipt carries charge_id.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -10,13 +13,16 @@ export const ASSIGNMENT = '11111111-2222-4333-8444-555555555555';
 export type ChatScenario =
   | 'ok'
   | 'ok-critical'
+  | 'ok-test-mode'
   | 'unstructured'
   | 'error-event'
   | 'no-done'
   | 'mismatch'
   | 'refused-429'
   | 'refused-401-echo-key'
-  | 'refused-404-session';
+  | 'refused-404-session'
+  | 'refused-409-opening-required'
+  | 'refused-409-in-progress';
 
 export interface Recorded { method: string; path: string; body: any; headers: Record<string, string | string[] | undefined> }
 
@@ -79,11 +85,13 @@ export async function startMock(): Promise<Mock> {
       return json(res, 200, { schema: 'fl.conversation.session.v1', session_id: 'sess_mock_' + prepared, state: 'prepared', mode: body.setup.mode, room_id: body.setup.room_id, cast: [{ speaker_id: 'spk_jon', persona_id: 'jon_guarded_report', display_name: 'Jon', role: 'Your direct report', seat: 1 }] });
     }
     if (req.method === 'POST' && path === '/chat') {
-      // As on staging (probe, 2026-11-24): a learner turn before the opening is refused before admission.
-      if (body.conversation?.operation === 'turn' && !opened.has(body.session_id)) return json(res, 403, { error: true, code: 'DEVELOPER_OPERATION_REFUSED', message: 'Operation not permitted', request_id: 'req_refused' });
+      // Since 2026.11.25.1: a learner turn before the opening is refused before admission, with no attempt used.
+      if (body.conversation?.operation === 'turn' && !opened.has(body.session_id)) return json(res, 409, { error: true, code: 'CONVERSATION_OPENING_REQUIRED', message: 'The session has no opening yet.', request_id: 'req_refused' });
+      const scenario = mock.chat.shift() ?? 'ok';
+      if (scenario === 'refused-409-opening-required') return json(res, 409, { error: true, code: 'CONVERSATION_OPENING_REQUIRED', message: 'The session has no opening yet.', request_id: 'req_refused' });
+      if (scenario === 'refused-409-in-progress') return json(res, 409, { error: true, code: 'REQUEST_IN_PROGRESS', message: 'A request is in progress for this session.', request_id: 'req_busy' });
       if (body.conversation?.operation === 'opening') opened.add(body.session_id);
       turn += 1;
-      const scenario = mock.chat.shift() ?? 'ok';
       const requestId = 'req_mock_' + turn;
       const session = body.session_id;
       const opening = body.conversation?.operation === 'opening';
@@ -99,12 +107,15 @@ export async function startMock(): Promise<Mock> {
         safety, structure: scenario === 'unstructured' ? 'unavailable' : 'available', state: 'active',
         characters: [{ speaker_id: 'spk_jon', persona_id: 'jon_guarded_report', expression: level === 'critical' ? null : 'guarded', expression_group: level === 'critical' ? null : 'more_careful', presence: 'present' }],
       };
-      const amount = level === 'critical' ? 0 : 30000;
-      const receipt = { request_id: requestId, session_id: session, content_release: 'mock-content', text: { unit: 'text_turn', units: amount ? 1 : 0, amount_micro_usd: amount, currency: 'USD', rate_version: 'r', settlement: 'settled', charge_id: amount ? 'ch_' + turn : null }, audio: null };
+      // Money: 3¢ on a live assignment; $0 with one unit on a test assignment (a free attempt); nothing at a critical turn.
+      const testMode = scenario === 'ok-test-mode';
+      const amount = level === 'critical' || testMode ? 0 : 30000;
+      const units = level === 'critical' ? 0 : 1;
+      const receipt = { request_id: requestId, session_id: session, content_release: 'mock-content', text: { unit: 'text_turn', units, amount_micro_usd: amount, currency: 'USD', rate_version: testMode ? 'rate_test' : 'rate_live', settlement: 'settled', charge_id: amount ? 'ch_' + turn : null }, audio: null };
       const head = [{ type: 'metadata', request_id: requestId, sessionId: session }, { type: 'content', part: 'conversation', text: words }, { type: 'content', part: 'display', text: LINES.coach }, { type: 'display_complete' }, safety];
       const done = { type: 'done', sessionId: session, receipt };
       switch (scenario) {
-        case 'ok': case 'ok-critical': case 'unstructured': return sse(res, [...head, { type: 'conversation_turn', turn: saved }, done], requestId);
+        case 'ok': case 'ok-critical': case 'ok-test-mode': case 'unstructured': return sse(res, [...head, { type: 'conversation_turn', turn: saved }, done], requestId);
         case 'error-event': return sse(res, [head[0], { type: 'error', error: true, code: 'GENERATION_FAILED', message: 'The reply failed its check twice.', request_id: requestId }], requestId);
         case 'no-done': return sse(res, [...head, { type: 'conversation_turn', turn: saved }], requestId);
         case 'mismatch': return sse(res, [...head, { type: 'conversation_turn', turn: saved }, { ...done, receipt: { ...receipt, request_id: 'req_other' } }], requestId);
@@ -115,10 +126,11 @@ export async function startMock(): Promise<Mock> {
     }
     const lookup = /^\/requests\/(.+)$/.exec(path);
     if (req.method === 'GET' && lookup) {
+      if (lookup[1] === 'req_unknown') return json(res, 404, { error: true, code: 'DEVELOPER_REQUEST_NOT_FOUND', message: 'No such request.', request_id: 'req_lookup' });
       if (mock.lookup === 'in_progress') return json(res, 200, { status: 'in_progress', request_id: lookup[1], session_id: 'sess_mock_1' });
       return json(res, 200, {
         status: 'committed', request_id: lookup[1], session_id: 'sess_mock_1',
-        result: { parts: [{ part: 'conversation', text: LINES.reply }, { part: 'display', text: LINES.coach }], safety_status: { type: 'safety_status', schema_version: 1, evaluated: true, level: 'clear', response_action: 'none', source: 'governed_turn' }, stop_reason: 'end_turn', session_ended: false, commercial: { request_id: lookup[1], billable_units: 1, charge: { amount_micro_usd: 30000, currency: 'USD' }, settlement: 'settled' } },
+        result: { parts: [{ part: 'conversation', text: LINES.reply }, { part: 'display', text: LINES.coach }], safety_status: { type: 'safety_status', schema_version: 1, evaluated: true, level: 'clear', response_action: 'none', source: 'governed_turn' }, stop_reason: 'end_turn', session_ended: false, commercial: { request_id: lookup[1], billable_units: 1, charge: { amount_micro_usd: 30000, currency: 'USD', charge_id: 'ch_lookup' }, settlement: 'settled' } },
       });
     }
     json(res, 404, { error: true, code: 'NOT_FOUND', message: 'No route ' + req.method + ' ' + path, request_id: 'req_404' });

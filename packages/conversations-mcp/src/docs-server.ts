@@ -33,8 +33,8 @@ export function instructions(s: Snapshot, mode: Mode = 'docs-only'): string {
     '- Live text pricing: ' + PRICE_LINE + '. Read conversations_guide with topic pricing for the current test allowance and billing rules. Preparing a room and reading saved practice add no charge. Tell the developer the applicable cost before their app sends turns.',
   ];
   if (mode === 'full') {
-    lines.push('- conversations_test_turn: one real, paid test turn with the developer\'s own key, for a quick check. Call it first without confirm to get the cost, ask the developer, and confirm only after they agree. '
-      + 'A live key (real money) also needs allow_live, only on the developer\'s word. Show the reply exactly as written. conversations_lookup_request looks up a turn that was not confirmed, at no charge.');
+    lines.push('- conversations_test_turn: one real test turn with the developer\'s own key, for a quick check. On a test assignment it uses one of the workspace\'s fifty free text attempts (no money); on a live assignment it spends real money (' + PRICE_LINE + '); on staging, staging credit. '
+      + 'Call it first without confirm to get the cost, ask the developer, and confirm only after they agree. On a production host it also needs allow_live, only after the developer says which their key is. Show the reply exactly as written. conversations_lookup_request looks up a turn that was not confirmed, at no charge.');
   } else {
     lines.push('- This hosted connection provides documentation without a local installation or API key. It sends no turns. Use the developer console Sandbox for real practice, or the optional local package for test-turn tools.');
   }

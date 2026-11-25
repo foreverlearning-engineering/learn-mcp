@@ -86,9 +86,11 @@ test('the cost comes first: without confirm, nothing at all is sent', async () =
   assert.match(plan.text, /^Not sent yet/);
   assert.match(plan.text, /\$0\.03/);
   assert.match(plan.text, /3¢ per text turn/);
-  assert.match(plan.text, /Every test turn is charged/);
-  assert.doesNotMatch(plan.text, /\bfree\b/i, 'nothing says free until production serves the free test turns');
-  assert.match(plan.text, /never ends the session/);
+  assert.match(plan.text, /fifty free text attempts and spends no money/, 'a test assignment uses a free attempt');
+  assert.match(plan.text, /live assignment spends real money/);
+  assert.match(plan.text, /an attempt counts even if the turn fails after dispatch/);
+  assert.match(plan.text, /closeout is charged like a turn/);
+  assert.match(plan.text, /never ends a session itself/);
   assert.match(plan.text, /Call again with confirm: true only after they agree/);
   assert.equal(mock.requests.length, 0, 'not even a free read');
   await c.close();
@@ -98,7 +100,7 @@ test('a live key is refused unless the call allows it, before any request', asyn
   const c = await connect(env());
   const r = await c.call('conversations_test_turn', { opening: true, confirm: true });
   assert.equal(r.isError, true);
-  assert.match(r.text, /live key/);
+  assert.match(r.text, /cannot tell whether the key's assignment is in test mode/);
   assert.match(r.text, /allow_live: true/);
   assert.equal(mock.requests.length, 0);
   await c.close();
@@ -116,8 +118,9 @@ test('a confirmed opening: one session, one turn, the reply exactly as written, 
   assert.ok(r.text.includes(LINES.coach), 'the Coach, word for word');
   assert.match(r.text, /exactly as written/);
   assert.match(r.text, /Safety: clear/);
-  assert.match(r.text, /Receipt: 1 text turn · \$0\.03 · settled · request req_mock_1/);
-  assert.match(r.text, /Charged: \$0\.03 from your workspace balance/);
+  assert.match(r.text, /Receipt: 1 text turn · \$0\.03 · settled · charge ch_1 · request req_mock_1/);
+  assert.match(r.text, /Charged: \$0\.03 from your workspace balance \(real money\)/);
+  assert.equal(r.structuredContent?.receipt?.charge_id, 'ch_1');
   assert.match(r.text, /Jon: more careful, present/);
   assert.equal(r.structuredContent?.operation, 'opening');
   assert.equal(prepares().length, 1);
@@ -275,17 +278,58 @@ test('a message before the opening is not sent: the opening comes first', async 
   await c.close();
 });
 
-test('a different room starts a new session there; the earlier one stays open', async () => {
+test('a different room prepares a new session; its opening closes the earlier open session with a charged closeout', async () => {
   const c = await connect(env());
   await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
   const plan = await c.call('conversations_test_turn', { opening: true, room: 'Interview Practice', allow_live: true });
   assert.match(plan.text, /in a new test session in the room "Interview Practice"/);
-  assert.match(plan.text, /earlier session, in the room "Direct Feedback To A Report", stays open/);
+  assert.match(plan.text, /earlier session, in the room "Direct Feedback To A Report", is still open: preparing the new one closes nothing, but requesting the new opening closes the earlier session with a closeout, charged like a turn/);
   const r = await c.call('conversations_test_turn', { opening: true, room: 'Interview Practice', confirm: true, allow_live: true });
   assert.equal(r.isError, undefined, r.text);
+  assert.match(r.text, /The earlier session was closed by this opening, with its closeout charged like a turn/);
   assert.equal(prepares().length, 2);
   assert.equal(prepares()[1].body.setup.room_id, 'S22');
   assert.equal(chats().length, 2);
+  await c.close();
+});
+
+test('a test assignment\'s receipt: no money, one free attempt used', async () => {
+  mock.chat = ['ok-test-mode'];
+  const c = await connect(env());
+  const r = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
+  assert.equal(r.isError, undefined, r.text);
+  assert.match(r.text, /Receipt: 1 text turn · \$0\.00 · settled · request req_mock_1/);
+  assert.match(r.text, /No money charged: this key's assignment is in test mode, so the turn used one of the workspace's free text attempts/);
+  assert.equal(r.structuredContent?.receipt?.charge_id, null);
+  assert.equal(r.structuredContent?.receipt?.rate_version, 'rate_test');
+  await c.close();
+});
+
+test('the API\'s own 409 codes are explained: opening required resets the record, in progress waits', async () => {
+  mock.chat = ['ok', 'refused-409-opening-required', 'refused-409-in-progress'];
+  const c = await connect(env({ CONVERSATIONS_MCP_MAX_TURNS: '4' }));
+  await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
+  const r = await c.call('conversations_test_turn', { message: 'a', confirm: true, allow_live: true });
+  assert.equal(r.isError, true);
+  assert.match(r.text, /409 CONVERSATION_OPENING_REQUIRED: The session has no opening yet/);
+  assert.match(r.text, /No attempt was used and nothing was charged/);
+  // The tool's record now says no opening, so the next message is held back locally.
+  const held = await c.call('conversations_test_turn', { message: 'b', confirm: true, allow_live: true });
+  assert.match(held.text, /has no opening yet/);
+  assert.equal(chats().length, 2);
+  const busy = await c.call('conversations_test_turn', { opening: true, confirm: true, allow_live: true });
+  assert.match(busy.text, /409 REQUEST_IN_PROGRESS: An earlier request in this session/);
+  await c.close();
+});
+
+test('a lookup of an unknown request id is a 404, explained', async () => {
+  const c = await connect(env());
+  const r = await c.call('conversations_lookup_request', { request_id: 'req_unknown' });
+  assert.equal(r.isError, true);
+  assert.match(r.text, /404 DEVELOPER_REQUEST_NOT_FOUND: No request with that id exists for this key/);
+  const ok = await c.call('conversations_lookup_request', { request_id: 'req_mock_9' });
+  assert.match(ok.text, /· charge ch_lookup ·/);
+  assert.equal(ok.structuredContent?.charge_id, 'ch_lookup');
   await c.close();
 });
 

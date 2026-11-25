@@ -2,12 +2,14 @@
 // The developer's key comes from their own environment (FOREVERLEARNING_API_KEY); it is sent only
 // to the configured API host and never appears in anything these tools return.
 //
-// The rules (the Learn server's, for an API where every turn is paid):
+// The rules (the Learn server's, for an API where every turn spends money or a free attempt):
 //   - the cost is stated first; nothing is sent without confirm: true (and a dialog where the
 //     client offers one);
-//   - a live key (any host but staging: real money) is refused unless the call sets allow_live;
+//   - on a production host the key's assignment may be live (real money), and the catalog cannot say
+//     which, so a production turn is refused unless the call sets allow_live;
 //   - at most 2 turns per server run by default, 10 at most;
-//   - never a retry, and never a closeout: this tool has no way to end a session;
+//   - never a retry, and never a closeout call: this tool has no way to end a session. The API itself
+//     closes an open session when the user's next session is opened, and charges that closeout;
 //   - the reply is shown exactly as written;
 //   - the key never appears in any output.
 import { McpServer, acceptedContent, inputRequired, inputResponse, type ServerContext } from '@modelcontextprotocol/server';
@@ -15,7 +17,7 @@ import * as z from 'zod/v4';
 import { DEFAULT_BASE_URL, DEFAULT_ROOM_TITLE, PRICE_LINE, STAGING_BASE_URL, TEXT_TURN_MICRO_USD, maxTurns } from './config.ts';
 import {
   ConversationsError, environmentOf, lookupRequest, prepareRoom, readCatalog, redact, sendTurn, settings,
-  type Catalog, type Environment, type Lookup, type TurnResult,
+  type Catalog, type Environment, type Lookup, type Meter, type TurnResult,
 } from './client.ts';
 import { loadProject, saveProject } from './state.ts';
 
@@ -52,12 +54,16 @@ function noKey(env: NodeJS.ProcessEnv, missing: string): string {
     + keyHelp(env) + ' Never paste the key into the conversation.';
 }
 
+// What a turn costs, before it is sent. The catalog does not say whether a key's assignment is in
+// test mode (free attempts) or live (real money), so on a production host both are named.
 export function costLine(where: Environment): string {
   const money = where === 'live'
-    ? 'This is a live key: the turn spends real money, ' + dollars(TEXT_TURN_MICRO_USD) + ' from your workspace balance (' + PRICE_LINE + ').'
-    : 'On staging the turn is paid from your workspace\'s staging test balance, ' + dollars(TEXT_TURN_MICRO_USD) + ' (' + PRICE_LINE + '); no real money.';
-  return money + ' Every test turn is charged at this price. A turn is charged when it is sent; a turn seen to fail before any reply is shown is not charged. '
-    + 'The opening is a turn of its own. This tool never ends the session, so it never spends a turn on a closeout.';
+    ? 'On this host (production, or any host but staging) the cost depends on the key\'s assignment, which this tool cannot read: '
+      + 'a test assignment uses one of the workspace\'s fifty free text attempts and spends no money; a live assignment spends real money, ' + dollars(TEXT_TURN_MICRO_USD) + ' (' + PRICE_LINE + '). '
+      + 'The developer sees which theirs is under My APIs in the developer console.'
+    : 'On staging no real money is spent: the turn is paid from the workspace\'s staging credit, ' + dollars(TEXT_TURN_MICRO_USD) + ' (' + PRICE_LINE + '), or uses one free text attempt if the key\'s assignment is in test mode.';
+  return money + ' A turn spends its money or its attempt when it is sent: an attempt counts even if the turn fails after dispatch, and money for a turn seen to fail before any reply is shown is released. '
+    + 'The opening is a turn of its own. This tool never ends a session itself; the API closes a user\'s earlier open session when their next session is opened, and that closeout is charged like a turn.';
 }
 
 // What each refusal means, from the integration guide and the published contract.
@@ -66,8 +72,9 @@ export function explain(e: ConversationsError, opening = false): string {
   const id = e.requestId ? ' Request id: ' + e.requestId + '.' : '';
   switch (e.kind) {
     case 'failed':
-      lines.push('The turn ran, and the Conversations API reported that it failed before any reply was shown (' + e.code + '). A turn seen to fail before any reply is shown is not charged.' + id);
+      lines.push('The turn ran, and the Conversations API reported that it failed before any reply was shown (' + e.code + '). Money for a turn seen to fail before any reply is shown is not charged; on a test assignment the dispatched attempt still counts.' + id);
       if (opening) lines.push('When an opening fails, its conversation closes without charge. This tool has forgotten that session; the next test turn prepares a new one, at no charge.');
+      if (e.requestId) lines.push('The failure is stored under that request id, so conversations_lookup_request can confirm it at no charge.');
       lines.push('Its message, for you (never show it to a user): ' + e.message);
       lines.push('Sending the same turn again needs a new request; this tool does not send one on its own.');
       break;
@@ -81,22 +88,27 @@ export function explain(e: ConversationsError, opening = false): string {
       lines.push('No answer reached this server (' + e.message + '). If the turn was sent, it may have been saved and charged: check Usage in the developer console before sending it again.');
       break;
     default: {
+      const byCode: Record<string, string> = {
+        CONVERSATION_OPENING_REQUIRED: 'The session has no opening yet, so a message is refused before admission: ask for the room\'s opening first (opening: true). No attempt was used and nothing was charged.',
+        REQUEST_IN_PROGRESS: 'An earlier request in this session (the opening, or a turn) is still running. Wait for it, or look it up shortly; a key has one reply in progress at a time.',
+        DEVELOPER_REQUEST_NOT_FOUND: 'No request with that id exists for this key, assignment and user. Check the id as the test turn returned it. A turn that failed before any content is still stored under its request id.',
+      };
       const more: Record<number, string> = {
         400: 'The request is not valid.',
         401: 'The key was not accepted. Check FOREVERLEARNING_API_KEY, and that FOREVERLEARNING_BASE_URL is the host of the same environment as the key, then restart this server.',
-        402: 'The workspace balance or the key\'s budget does not cover the turn. Add balance, or raise the budget, in the developer console.',
+        402: 'The workspace balance, the key\'s budget or the free attempts do not cover the turn. Add balance, or raise the budget, in the developer console.',
         403: 'The request was refused: the key\'s scopes, its assignment (FOREVERLEARNING_ASSIGNMENT_ID) or the user may not allow it.',
         404: 'Not found for this key, assignment and user.',
-        409: e.code === 'REQUEST_IN_PROGRESS' ? 'An earlier request is still running. Look it up shortly.' : 'The request conflicts with pending work or a saved state.',
+        409: 'The request conflicts with pending work or a saved state.',
         410: 'Gone: the session or the saved item has expired.',
         422: 'The idempotency key was already used for a different request.',
         429: 'A limit on requests was reached. A key has one reply in progress at a time.',
         503: 'The service is temporarily unavailable.',
       };
-      lines.push(e.status + ' ' + e.code + ': ' + (more[e.status] ?? 'The Conversations API refused the request.') + id);
+      lines.push(e.status + ' ' + e.code + ': ' + (byCode[e.code] ?? more[e.status] ?? 'The Conversations API refused the request.') + id);
       if (e.retryAfterSeconds) lines.push('It says a retry can succeed after ' + e.retryAfterSeconds + ' seconds.');
       lines.push('Its message: ' + e.message);
-      lines.push('A refused request was not admitted: nothing was charged.');
+      lines.push('A refused request was not admitted: nothing was charged and no attempt was used.');
     }
   }
   lines.push('This tool never sends a turn again on its own.');
@@ -124,6 +136,19 @@ export function replyText(r: TurnResult, names: Map<string, string>): string {
   ].join('\n');
 }
 
+// The receipt's meaning: money charged, a free attempt used, or nothing at a critical turn.
+export function receiptLines(m: Meter | null, where: Environment, requestId: string, sessionId: string, operation: string): { receipt: string; charged: string } {
+  const units = m?.units ?? 0;
+  const amount = m?.amount_micro_usd ?? 0;
+  const receipt = 'Receipt: ' + units + ' text turn · ' + dollars(amount) + ' · ' + (m?.settlement ?? 'unknown') + (m?.charge_id ? ' · charge ' + m.charge_id : '') + ' · request ' + requestId + ' · session ' + sessionId + ' · ' + operation;
+  const charged = amount > 0
+    ? (where === 'live' ? 'Charged: ' + dollars(amount) + ' from your workspace balance (real money).' : 'Charged: ' + dollars(amount) + ' to the workspace\'s staging credit (no real money).')
+    : units > 0
+      ? 'No money charged: this key\'s assignment is in test mode, so the turn used one of the workspace\'s free text attempts (fifty per workspace; they never reset).'
+      : 'Not charged (a turn at the critical safety level is not charged).';
+  return { receipt, charged };
+}
+
 function clientConfirms(server: McpServer, env: NodeJS.ProcessEnv): boolean {
   if ((env.CONVERSATIONS_MCP_CONFIRM_DIALOG ?? '').toLowerCase() === 'off') return false;
   const caps = server.server.getClientCapabilities() as { elicitation?: { form?: unknown; url?: unknown } } | undefined;
@@ -142,17 +167,18 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     description: 'Send ONE real test turn to the Conversations API with the developer\'s own key (from this server\'s environment): the room\'s opening, or one message from the user. '
       + 'It uses one stable test user and one practice session for this project, in a ready-made room (default "' + DEFAULT_ROOM_TITLE + '"), and returns each character\'s line, the Coach\'s note, the safety status and the receipt exactly as written. '
       + 'A session starts with the room\'s opening (opening: true); a message is sent only after it. '
-      + 'Cost: every turn is paid, ' + PRICE_LINE + ' (the opening is a turn), and every test turn is charged. On staging it is paid from the workspace\'s staging test balance; on any other host it is real money, and the call is refused unless allow_live is true. '
-      + 'Preparing the session adds no charge, and this tool never ends the session. '
+      + 'Cost: on a test assignment, one of the workspace\'s fifty free text attempts and no money; on a live assignment, real money at ' + PRICE_LINE + '; on staging, staging credit and no real money. The opening is a turn. '
+      + 'On a production host this tool cannot tell a test key from a live one, so it refuses to send unless allow_live is true. '
+      + 'Preparing the session adds no charge. This tool never ends a session; opening a second session for the same test user closes the first with a closeout, charged like a turn. '
       + 'First call it without confirm to see the exact cost, tell the developer, and call again with confirm: true only after they agree in the conversation. '
       + 'At most ' + maxTurns(env).limit + ' turns per server run. It never retries: if a turn is not confirmed, use conversations_lookup_request with the request id it returns. '
       + 'Show the reply to the developer exactly as written; never paraphrase, summarize or correct it.',
     inputSchema: z.object({
       message: z.string().max(10000).optional().describe('What the user says in the room, as they would say it. Use a made-up situation, never real personal data.'),
       opening: z.boolean().default(false).describe('Ask for the room\'s opening (the characters speak first) instead of sending a message. It is a turn of its own, once per session.'),
-      room: z.string().max(200).optional().describe('The title of a ready-made room (default "' + DEFAULT_ROOM_TITLE + '", or the room of this project\'s open session). A different room starts a new session there, which adds no charge; the earlier session stays open. Rooms that need the user\'s consent are not used.'),
+      room: z.string().max(200).optional().describe('The title of a ready-made room (default "' + DEFAULT_ROOM_TITLE + '", or the room of this project\'s open session). A different room prepares a new session there at no charge; its opening then closes the earlier open session with a charged closeout. Rooms that need the user\'s consent are not used.'),
       confirm: z.boolean().default(false).describe('Set to true only after the developer has agreed to the cost in this conversation.'),
-      allow_live: z.boolean().default(false).describe('Set to true only when the developer has said to use a live key, which spends real money.'),
+      allow_live: z.boolean().default(false).describe('Required on a production host. Set to true only after the developer has said which their key\'s assignment is (test: free attempts; live: real money) and agreed to send.'),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async ({ message, opening, room, confirm, allow_live }, ctx: ServerContext) => {
@@ -162,26 +188,27 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
     const cap = maxTurns(env);
     if (budget.sent >= cap.limit) {
       return out('Not sent: this server has already sent ' + budget.sent + ' test turn' + (budget.sent === 1 ? '' : 's') + ', its limit for one run (' + cap.limit + '). '
-        + 'Every Conversations turn is paid, so the limit keeps test spending small. A developer who wants more sets CONVERSATIONS_MCP_MAX_TURNS (up to 10) and restarts the server. ' + cap.note, true);
+        + 'Every Conversations turn spends money or a free attempt, so the limit keeps test spending small. A developer who wants more sets CONVERSATIONS_MCP_MAX_TURNS (up to 10) and restarts the server. ' + cap.note, true);
     }
     if (!opening && !(message ?? '').trim()) return out('Not sent: give the user\'s message, or set opening to true for the room\'s opening.', true);
     if (budget.busy) return out('Not sent: a test turn is already in progress. A key has one reply in progress at a time.', true);
 
-    // A live key spends real money: refused before anything is sent, even a read.
+    // A production key may be live (real money) and the catalog cannot say: refused before anything is sent, even a read.
     const where = environmentOf(s.base);
     if (where === 'live' && !allow_live) {
-      return out('Not sent: FOREVERLEARNING_BASE_URL is not the staging host, so this is a live key and a turn spends real money (' + dollars(TEXT_TURN_MICRO_USD) + ', ' + PRICE_LINE + '). '
-        + 'This tool sends a live turn only when the developer says so and the call sets allow_live: true. To test without real money, use a staging key with FOREVERLEARNING_BASE_URL=' + STAGING_BASE_URL + '.', true);
+      return out('Not sent: FOREVERLEARNING_BASE_URL is not the staging host, and this tool cannot tell whether the key\'s assignment is in test mode (free attempts) or live (real money, ' + dollars(TEXT_TURN_MICRO_USD) + ', ' + PRICE_LINE + '). '
+        + 'Ask the developer which it is (My APIs in the developer console); this tool sends on a production host only when they say so and the call sets allow_live: true. To test with staging credit instead, use a staging key with FOREVERLEARNING_BASE_URL=' + STAGING_BASE_URL + '.', true);
     }
 
     const { key: projectKey, state } = loadProject(s.base, s.assignment, env);
     const roomTitle = (room ?? '').trim() || state.room_title || DEFAULT_ROOM_TITLE;
-    // A different room means a new session. Preparing one leaves the earlier session open, with no
-    // closeout and no charge (seen on staging, 2026-11-24), so the earlier one is simply set aside.
+    // A different room means a new session. Preparing one closes nothing; the new session's opening
+    // closes the earlier open session with a charged closeout (the guide's one-active-session rule).
     const newRoom = Boolean(state.session_id && state.room_title && roomTitle.toLowerCase() !== state.room_title.toLowerCase());
     const sessionOpen = Boolean(state.session_id) && !newRoom;
+    const earlierOpened = newRoom && state.opened;
     if (opening && sessionOpen && state.opened) return out('Not sent: this project\'s test session already has its opening. Send a message instead.', true);
-    // The opening comes first: a message before it is refused (403), so it is not sent at all.
+    // The opening comes first: a message before it is refused (409 CONVERSATION_OPENING_REQUIRED), so it is not sent at all.
     if (!opening && !(sessionOpen && state.opened)) {
       return out('Not sent: ' + (sessionOpen ? 'this project\'s test session' : 'a new test session') + ' has no opening yet, and a message before the opening is refused. Send the room\'s opening first (opening: true).', true);
     }
@@ -191,7 +218,9 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       'Not sent yet. This would send one test turn to the Conversations API:',
       '- ' + (opening ? 'the room\'s opening (the characters speak first; no message from the user)' : 'the user\'s message: "' + (message ?? '').trim() + '"'),
       '- as test user ' + state.user_id + ', ' + (sessionOpen ? 'in this project\'s open test session, room "' + state.room_title + '"' : 'in a new test session in the room "' + roomTitle + '" (reading the catalog and preparing the session add no charge)'),
-      ...(newRoom ? ['- this project\'s earlier session, in the room "' + state.room_title + '", stays open: preparing a new one does not close it and adds no charge'] : []),
+      ...(newRoom ? [earlierOpened
+        ? '- this project\'s earlier session, in the room "' + state.room_title + '", is still open: preparing the new one closes nothing, but requesting the new opening closes the earlier session with a closeout, charged like a turn (' + dollars(TEXT_TURN_MICRO_USD) + ', or one free attempt on a test assignment)'
+        : '- this project\'s earlier session, in the room "' + state.room_title + '", was never opened, so nothing closes and nothing extra is charged'] : []),
       '- ' + cost,
       '- test turns this server has sent: ' + budget.sent + ' of ' + cap.limit,
       'Tell the developer this and ask whether to send it. Call again with confirm: true only after they agree.',
@@ -246,9 +275,11 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       const e = error instanceof ConversationsError ? error : new ConversationsError('unconfirmed', 0, 'CLIENT_ERROR', String((error as Error)?.message ?? error));
       if (e.requestId) { state.last_request_id = e.requestId; state.last_request_at = new Date().toISOString(); }
       if ((opening && e.kind === 'failed') || sessionGone(e)) { state.session_id = ''; state.opened = false; }
+      // The API says the session has no opening: this tool's record was wrong, so the next call sends the opening.
+      if (e.kind === 'refused' && e.code === 'CONVERSATION_OPENING_REQUIRED') state.opened = false;
       saveProject(projectKey, state, env);
       return out('The test turn did not complete.\n' + explain(e, opening) + '\nTest turns this server has sent: ' + budget.sent + ' of ' + cap.limit + '.', true,
-        { outcome: e.kind, status: e.status, code: e.code, request_id: e.requestId, user_id: state.user_id, lookup: e.kind === 'unconfirmed' && e.requestId ? 'conversations_lookup_request' : null });
+        { outcome: e.kind, status: e.status, code: e.code, request_id: e.requestId, user_id: state.user_id, lookup: e.requestId && (e.kind === 'unconfirmed' || e.kind === 'failed') ? 'conversations_lookup_request' : null });
     } finally {
       budget.busy = false;
     }
@@ -259,11 +290,9 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
 
     const names = new Map((r.turn.cast ?? []).map((c) => [c.speaker_id, c.display_name]));
     const m = r.receipt.text;
-    const receipt = 'Receipt: ' + (m?.units ?? 0) + ' text turn · ' + dollars(m?.amount_micro_usd ?? 0) + ' · ' + (m?.settlement ?? 'unknown') + ' · request ' + r.request_id + ' · session ' + r.session_id + ' · ' + r.turn.operation;
-    const charged = (m?.amount_micro_usd ?? 0) === 0
-      ? 'Not charged (a turn at the critical safety level is not charged).'
-      : where === 'live' ? 'Charged: ' + dollars(m!.amount_micro_usd) + ' from your workspace balance.' : 'Charged: ' + dollars(m!.amount_micro_usd) + ' to the workspace\'s staging test balance (no real money).';
-    return out([replyText(r, names), receipt, charged, 'Test user: ' + state.user_id + '. Room: ' + state.room_title + '. Test turns this server has sent: ' + budget.sent + ' of ' + cap.limit + '. The session stays open; this tool never ends it.'].join('\n'), false, {
+    const { receipt, charged } = receiptLines(m, where, r.request_id, r.session_id, r.turn.operation);
+    const closed = earlierOpened && opening ? ' The earlier session was closed by this opening, with its closeout charged like a turn.' : '';
+    return out([replyText(r, names), receipt, charged, 'Test user: ' + state.user_id + '. Room: ' + state.room_title + '. Test turns this server has sent: ' + budget.sent + ' of ' + cap.limit + '. The session stays open; this tool never ends it.' + closed].join('\n'), false, {
       outcome: 'confirmed',
       operation: r.turn.operation,
       cast: r.turn.structure === 'available' ? r.turn.cast.map((c) => ({ speaker: c.display_name, text: c.text })) : [],
@@ -271,7 +300,7 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       coach: r.turn.coach?.text ?? null,
       safety: r.safety,
       characters: r.turn.characters,
-      receipt: { request_id: r.request_id, session_id: r.session_id, user_id: state.user_id, units: m?.units ?? 0, amount_micro_usd: m?.amount_micro_usd ?? 0, settlement: m?.settlement ?? null },
+      receipt: { request_id: r.request_id, session_id: r.session_id, user_id: state.user_id, units: m?.units ?? 0, amount_micro_usd: m?.amount_micro_usd ?? 0, settlement: m?.settlement ?? null, charge_id: m?.charge_id ?? null, rate_version: m?.rate_version ?? null },
       environment: where,
     });
   });
@@ -311,8 +340,8 @@ export function registerTurnTools(server: McpServer, env: NodeJS.ProcessEnv = pr
       r.display || '(No Coach note on this turn.)',
       '--- end of the reply ---',
       'Safety: ' + r.safety?.level + ' (response action: ' + r.safety?.response_action + ')' + (r.safety?.level === 'unknown' ? '. Unknown is not an all-clear.' : ''),
-      'Receipt: ' + r.units + ' text turn · ' + dollars(r.amount_micro_usd) + ' · ' + r.settlement + ' · request ' + r.request_id + ' · session ' + r.session_id,
+      'Receipt: ' + r.units + ' text turn · ' + dollars(r.amount_micro_usd) + ' · ' + r.settlement + (r.charge_id ? ' · charge ' + r.charge_id : '') + ' · request ' + r.request_id + ' · session ' + r.session_id,
       'This is the original result, read again: no new turn and no new charge.',
-    ].join('\n'), false, { outcome: 'committed', conversation: r.conversation, display: r.display, safety: r.safety, request_id: r.request_id, session_id: r.session_id, units: r.units, amount_micro_usd: r.amount_micro_usd, settlement: r.settlement });
+    ].join('\n'), false, { outcome: 'committed', conversation: r.conversation, display: r.display, safety: r.safety, request_id: r.request_id, session_id: r.session_id, units: r.units, amount_micro_usd: r.amount_micro_usd, settlement: r.settlement, charge_id: r.charge_id });
   });
 }
