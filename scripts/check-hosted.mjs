@@ -25,7 +25,8 @@ function walk(fileUrl) {
   const file = fileURLToPath(fileUrl);
   if (graph.files.includes(file)) return;
   graph.files.push(file);
-  const text = readFileSync(file, 'utf8');
+  // Comments are stripped first: the rules below are about code, and a comment may name what it avoids.
+  const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(text, /\bBuffer\b/, 'Buffer in hosted graph: ' + file);
   assert.doesNotMatch(text, /\brequire\(/, 'require() in hosted graph: ' + file);
   assert.doesNotMatch(text, /\breadFileSync|\bfs\./, 'file read in hosted graph: ' + file);
