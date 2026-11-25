@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createConversationsServer, instructions } from '../src/server.ts';
-import { loadSnapshot } from '../src/snapshot.ts';
+import { loadSnapshot } from '../src/snapshot-file.ts';
 import { startDocsHttp } from '../src/http.ts';
 
 const snapshot = loadSnapshot();

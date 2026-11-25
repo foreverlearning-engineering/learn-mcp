@@ -1,7 +1,7 @@
 // The bundled, dated snapshot of the Learn docs (built by scripts/snapshot.mjs) and the
-// questions the docs tools ask of it. Nothing here calls the network.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+// questions the docs tools ask of it. Nothing here calls the network, and nothing here imports a
+// Node module: reading the snapshot from disk is snapshot-file.ts, so a hosted runtime can import
+// this file and everything it uses as is.
 
 export interface GuideSection { id: string; title: string; markdown: string }
 export interface ContractFile { name: string; path: string; title: string; url: string; sha256: string; text: string }
@@ -35,18 +35,7 @@ export interface Snapshot {
   warnings: string[];
 }
 
-let cached: Snapshot | undefined;
-
-// The bundled snapshot sits at <package>/snapshot/learn-docs.json, one level above src/ and dist/.
-// LEARN_MCP_SNAPSHOT points at another snapshot file (for example a newer one built locally).
-export function loadSnapshot(path = process.env.LEARN_MCP_SNAPSHOT): Snapshot {
-  if (cached && !path) return cached;
-  const file = path ?? fileURLToPath(new URL('../snapshot/learn-docs.json', import.meta.url));
-  const data = JSON.parse(readFileSync(file, 'utf8')) as Snapshot;
-  if (data.schema !== 'learn-mcp.snapshot.v1') throw new Error('Unknown snapshot format in ' + file);
-  if (!path) cached = data;
-  return data;
-}
+export const SNAPSHOT_SCHEMA = 'learn-mcp.snapshot.v1';
 
 export function snapshotDate(s: Snapshot): string {
   return s.taken_at.slice(0, 10);

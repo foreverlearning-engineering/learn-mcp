@@ -37,6 +37,14 @@
     "./http": {
       "types": "./dist/http.d.ts",
       "default": "./dist/http.js"
+    },
+    "./docs": {
+      "types": "./dist/docs-server.d.ts",
+      "default": "./dist/docs-server.js"
+    },
+    "./hosted": {
+      "types": "./dist/hosted.d.ts",
+      "default": "./dist/hosted.js"
     }
   },
   "files": [

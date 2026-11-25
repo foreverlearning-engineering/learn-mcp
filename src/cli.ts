@@ -10,7 +10,8 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { SERVER_VERSION, maxTurns } from './config.ts';
 import { startDocsHttp } from './http.ts';
 import { createLearnServer } from './server.ts';
-import { loadSnapshot, snapshotDate } from './snapshot.ts';
+import { loadSnapshot } from './snapshot-file.ts';
+import { snapshotDate } from './snapshot.ts';
 
 const argv = process.argv.slice(2);
 const flag = (name: string) => argv.includes('--' + name);
@@ -47,5 +48,5 @@ if (flag('http')) {
     onerror: (error) => console.error('learn-mcp: ' + String(error?.message ?? error).replace(/fl_(?:live|stag|test)_[0-9a-f]{16,}(?:_[0-9a-f]+)?/gi, '<redacted-key>')),
   });
   const keyed = !docsOnly && Boolean((process.env.FOREVERLEARNING_API_KEY ?? '').trim());
-  console.error('learn-mcp ' + SERVER_VERSION + ': stdio, docs of ' + snapshotDate(snapshot) + (docsOnly ? ', docs only' : keyed ? ', test turns on (at most ' + maxTurns().limit + ')' : ', no key set: docs only'));
+  console.error('learn-mcp ' + SERVER_VERSION + ': stdio, docs of ' + snapshotDate(snapshot) + (docsOnly ? ', docs only' : keyed ? ', test turns on (at most ' + maxTurns(process.env).limit + ')' : ', no key set: docs only'));
 }

@@ -12,7 +12,7 @@ import { createConversationsServer } from '../src/server.ts';
 import { resetBudgetForTests } from '../src/turn.ts';
 import { environmentOf } from '../src/client.ts';
 import { maxTurns, HARD_MAX_TURNS, STAGING_BASE_URL, DEFAULT_BASE_URL } from '../src/config.ts';
-import { loadSnapshot } from '../src/snapshot.ts';
+import { loadSnapshot } from '../src/snapshot-file.ts';
 import { startDocsHttp } from '../src/http.ts';
 import { startMock, TEST_KEY, ASSIGNMENT, LINES, type Mock } from './mock-api.ts';
 

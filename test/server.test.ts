@@ -10,7 +10,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createLearnServer } from '../src/server.ts';
 import { resetBudgetForTests } from '../src/learn/turn.ts';
 import { maxTurns, HARD_MAX_TURNS } from '../src/config.ts';
-import { loadSnapshot } from '../src/snapshot.ts';
+import { loadSnapshot } from '../src/snapshot-file.ts';
 import { startDocsHttp } from '../src/http.ts';
 import { startMock, TEST_KEY, REPLY, type Mock } from './mock-learn.ts';
 

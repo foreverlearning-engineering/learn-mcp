@@ -34,7 +34,9 @@ export const READ_TIMEOUT_MS = 30_000;
 // How long the confirmation dialog may wait for the developer, where the client supports one.
 export const CONFIRM_TIMEOUT_MS = 120_000;
 
-export function maxTurns(env: NodeJS.ProcessEnv = process.env): { limit: number; note: string } {
+// The caller passes the environment: this file is in the hosted docs-only import graph, which must
+// not touch process at all.
+export function maxTurns(env: NodeJS.ProcessEnv): { limit: number; note: string } {
   const raw = env.CONVERSATIONS_MCP_MAX_TURNS;
   if (raw === undefined || raw.trim() === '') return { limit: DEFAULT_MAX_TURNS, note: '' };
   const n = Number(raw);

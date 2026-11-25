@@ -1,11 +1,12 @@
-// The docs over Streamable HTTP. It reads no key and sends no turns, so it can be hosted at one
-// public address. createDocsHandler() is a web-standard fetch handler (Request in, Response out);
-// startDocsHttp() serves it locally with Node's http module.
+// The docs over Streamable HTTP, served locally with Node's http module. The handler itself is
+// hosted.ts (web-standard, no Node imports); this file only adds the bundled snapshot, the local
+// host names and a Node server around it.
 import { createServer, type Server } from 'node:http';
-import { createMcpHandler, hostHeaderValidationResponse, localhostAllowedHostnames, type McpHttpHandler } from '@modelcontextprotocol/server';
+import { localhostAllowedHostnames } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
-import { createConversationsServer } from './server.ts';
-import { loadSnapshot, type Snapshot } from './snapshot.ts';
+import { createDocsFetchHandler, type DocsFetchHandler } from './hosted.ts';
+import { loadSnapshot } from './snapshot-file.ts';
+import { type Snapshot } from './snapshot.ts';
 
 export interface DocsHandlerOptions {
   snapshot?: Snapshot;
@@ -15,22 +16,12 @@ export interface DocsHandlerOptions {
   path?: string;
 }
 
-export function createDocsHandler(options: DocsHandlerOptions = {}): { fetch: (request: Request) => Promise<Response>; mcp: McpHttpHandler } {
-  const snapshot = options.snapshot ?? loadSnapshot();
-  const path = options.path ?? '/mcp';
-  const hosts = options.allowedHosts ?? localhostAllowedHostnames();
-  // A fresh server per request: stateless, nothing shared, no key anywhere.
-  const mcp = createMcpHandler(() => createConversationsServer({ mode: 'docs-only', snapshot, env: {} }));
-  return {
-    mcp,
-    fetch: async (request: Request) => {
-      const url = new URL(request.url);
-      if (url.pathname !== path) return new Response('Not found', { status: 404 });
-      const refused = hostHeaderValidationResponse(request, hosts);
-      if (refused) return refused;
-      return mcp.fetch(request);
-    },
-  };
+export function createDocsHandler(options: DocsHandlerOptions = {}): DocsFetchHandler {
+  return createDocsFetchHandler({
+    snapshot: options.snapshot ?? loadSnapshot(),
+    allowedHosts: options.allowedHosts ?? localhostAllowedHostnames(),
+    path: options.path,
+  });
 }
 
 export function startDocsHttp(port: number, host = '127.0.0.1', options: DocsHandlerOptions = {}): Promise<Server> {
