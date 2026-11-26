@@ -25,6 +25,9 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, a, i, all) 
 
 const DOCS = (args.docs ?? 'https://developers.foreverlearning.ai').replace(/\/+$/, '');
 const PUBLIC = (args.public ?? 'https://developers.foreverlearning.ai').replace(/\/+$/, '');
+// Every rendered address of the site read from (the guide's MCP line, absolute links in Markdown copies)
+// becomes the public site's. The site host never appears on purpose; the API hosts are not touched.
+const publicise = (t) => (DOCS === PUBLIC || typeof t !== 'string' ? t : t.split(DOCS).join(PUBLIC));
 const GUIDE_URL = args['guide-url'] ?? '/docs/conversation-practice/';
 const KITS = args.kits ?? process.env.CONVERSATIONS_KITS_DIR;
 const STARTER = args.starter ?? process.env.CONVERSATIONS_STARTER_DIR ?? join(ROOT, '..', '..', '..', 'conversations-room-starter');
@@ -204,6 +207,8 @@ function readStarter(folders) {
 // ---------- Run ----------
 const started = new Date();
 const guide = { url: PUBLIC + GUIDE_URL, ...guideFromHtml(await get(GUIDE_URL)) };
+for (const key of ['title', 'lead', 'intro']) guide[key] = publicise(guide[key]);
+for (const s of guide.sections) { s.title = publicise(s.title); s.markdown = publicise(s.markdown); }
 
 // The Conversations contract at its public addresses (the OpenAPI references the schema by its
 // absolute address, /schemas/conversation-v1.json), and the shared lifecycle contract that holds
@@ -218,14 +223,15 @@ const contract = [];
 for (const c of CONTRACT) {
   const text = (await get(c.path)).replace(/\r\n/g, '\n');
   JSON.parse(text);
-  contract.push({ ...c, url: PUBLIC + c.path, sha256: sha(text), text });
+  const served = publicise(text);
+  contract.push({ ...c, url: PUBLIC + c.path, sha256: sha(served), text: served });
 }
 
 const EXAMPLES = ['README.md', 'conversation.ts', 'conversation.py', 'conversation.sh'];
 const examples = [];
 for (const name of EXAMPLES) {
   const text = (await get('/examples/conversation/' + name)).replace(/\r\n/g, '\n');
-  examples.push({ name, url: PUBLIC + '/examples/conversation/' + name, text });
+  examples.push({ name, url: PUBLIC + '/examples/conversation/' + name, text: publicise(text) });
 }
 if (/unpublished candidate|Public access is closed/i.test(examples.find((e) => e.name === 'README.md')?.text ?? '')) {
   warnings.push('examples/README.md still calls itself an unpublished candidate with public access closed (developer lane request D1)');
@@ -247,7 +253,10 @@ const snapshot = {
   warnings,
 };
 // Guard: links point to the public site; the host the docs were read from must not appear in the served text.
-if (DOCS !== PUBLIC && JSON.stringify({ ...snapshot, sources: null }).includes(DOCS)) warnings.push('the docs host read from still appears in the served text');
+if (DOCS !== PUBLIC && JSON.stringify({ ...snapshot, sources: null }).includes(DOCS)) {
+  console.error('REFUSED: the docs host read from still appears in the served text. Nothing written.');
+  process.exit(1);
+}
 const json = JSON.stringify(snapshot, null, 1) + '\n';
 
 // Guard: no key, ever. A server key looks like fl_live_, fl_stag_ or fl_test_ followed by hex.

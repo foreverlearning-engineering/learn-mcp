@@ -29,6 +29,9 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, a, i, all) 
 
 const DOCS = (args.docs ?? process.env.LEARN_DOCS_BASE ?? 'https://foreverlearning-developers-staging.netlify.app').replace(/\/+$/, '');
 const PUBLIC = (args.public ?? 'https://developers.foreverlearning.ai').replace(/\/+$/, '');
+// Every rendered address of the site read from (the guide's MCP line, absolute links in Markdown copies)
+// becomes the public site's. The site host never appears on purpose; the API hosts are not touched.
+const publicise = (t) => (DOCS === PUBLIC || typeof t !== 'string' ? t : t.split(DOCS).join(PUBLIC));
 const GUIDE_URL = args['guide-url'] ?? '/docs/learn/';
 const GUIDE_FORMAT = args['guide-format'] ?? 'html';
 const KITS = args.kits ?? process.env.LEARN_KITS_DIR;
@@ -221,6 +224,8 @@ function readStarter(folders) {
 const started = new Date();
 const guideText = await get(GUIDE_URL);
 const guide = { url: PUBLIC + GUIDE_URL, ...(GUIDE_FORMAT === 'markdown' ? guideFromMarkdown(guideText) : guideFromHtml(guideText)) };
+for (const key of ['title', 'lead', 'intro']) guide[key] = publicise(guide[key]);
+for (const s of guide.sections) { s.title = publicise(s.title); s.markdown = publicise(s.markdown); }
 
 // The Learn contract, at its Learn-named public addresses, and the shared lifecycle contract it
 // references (POST /v1/chat, GET /v1/requests/{id} and the session lifecycle).
@@ -234,14 +239,15 @@ const contract = [];
 for (const c of CONTRACT) {
   const text = (await get(c.path)).replace(/\r\n/g, '\n');
   JSON.parse(text); // must be JSON
-  contract.push({ ...c, url: PUBLIC + c.path, sha256: sha(text), text });
+  const served = publicise(text);
+  contract.push({ ...c, url: PUBLIC + c.path, sha256: sha(served), text: served });
 }
 
 const EXAMPLES = ['README.md', 'prepare.mjs', 'quest.ts', 'quest.py', 'quest.sh', 'server.ts'];
 const examples = [];
 for (const name of EXAMPLES) {
   const text = (await get('/examples/learn/' + name)).replace(/\r\n/g, '\n');
-  examples.push({ name, url: PUBLIC + '/examples/learn/' + name, text });
+  examples.push({ name, url: PUBLIC + '/examples/learn/' + name, text: publicise(text) });
 }
 
 const kits = await readKits();
@@ -267,7 +273,10 @@ if (leak) {
   console.error('REFUSED: the snapshot contains something shaped like a server key. Nothing written.');
   process.exit(1);
 }
-if (DOCS !== PUBLIC && JSON.stringify({ ...snapshot, sources: null }).includes(DOCS)) warnings.push('the docs host read from still appears in the served text');
+if (DOCS !== PUBLIC && JSON.stringify({ ...snapshot, sources: null }).includes(DOCS)) {
+  console.error('REFUSED: the docs host read from still appears in the served text. Nothing written.');
+  process.exit(1);
+}
 
 await mkdir(dirname(OUT), { recursive: true });
 await writeFile(OUT, JSON.stringify({ ...snapshot, warnings }, null, 1) + '\n');
