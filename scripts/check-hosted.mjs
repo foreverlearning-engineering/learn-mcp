@@ -105,12 +105,14 @@ try {
         catch { refused = true; }
         assert.ok(refused, 'unregistered generation/lookup tool must fail');
       }
-      if (product === 'conversations') {
-        const kit = await client.callTool({ name: 'conversations_kit', arguments: { kit: '03-room-and-cast' } });
-        assert.match(JSON.stringify(kit), /coming soon/i);
-        assert.doesNotMatch(JSON.stringify(kit), /```text/);
+      // Every kit answers as the snapshot states it: a verified kit with its prompt as written, a withheld one as coming soon with no prompt.
+      const snapshotKits = (product === 'learn' ? inputs.learnSnapshot : inputs.conversationsSnapshot).kits;
+      for (const k of snapshotKits) {
+        const kit = JSON.stringify(await client.callTool({ name: product + '_kit', arguments: { kit: k.id } }));
+        if (k.state === 'verified') { assert.match(kit, /```text/, product + ' kit ' + k.id + ' should carry its prompt'); assert.doesNotMatch(kit, /coming soon/i, product + ' kit ' + k.id + ' is verified'); }
+        else { assert.match(kit, /coming soon/i, product + ' kit ' + k.id + ' should say coming soon'); assert.doesNotMatch(kit, /```text/, product + ' kit ' + k.id + ' must carry no prompt'); }
       }
-      products.push({ product, tools, resources: resources.length, prompts: prompts.length, capabilities: caps, passed: true });
+      products.push({ product, tools, resources: resources.length, prompts: prompts.length, capabilities: caps, kits: Object.fromEntries(snapshotKits.map((k) => [k.id, k.state])), passed: true });
     } finally { await client.close(); }
   }
   assert.equal((await handler.fetch(new Request('http://untrusted.invalid/mcp/learn'))).status, 421);
@@ -133,7 +135,7 @@ try {
     hostedGraph: { files: graph.files.map((f) => f.slice(artifact.length + 1).replaceAll('\\', '/')), bareImports: [...graph.bare].sort() },
     checks: ['artifact hashes', 'hosted import graph is web-standard (no node:, no Node adapter, no Buffer, no file read, no turn/client/state modules)',
       'HTTP MCP discovery and reads', 'listChanged false and no resource subscribe in docs-only mode', 'prompts and resources', 'generation and lookup refused',
-      'pending kit withheld', 'ambient credentials and snapshot overrides ignored', 'host and origin restrictions', 'body limit', 'route and method restrictions', 'configurable health path and identity'],
+      'every kit answers as the snapshot states it (verified with its prompt, withheld as coming soon)', 'ambient credentials and snapshot overrides ignored', 'host and origin restrictions', 'body limit', 'route and method restrictions', 'configurable health path and identity'],
     limitations: ['Local loopback HTTP through the Node adapter only; the Workers runtime, provider HTTPS/proxy, advertised assistant apps, rate controls and monitoring remain for preview qualification.'],
   };
   if (process.argv[3]) writeFileSync(process.argv[3], JSON.stringify(result, null, 2) + '\n');
