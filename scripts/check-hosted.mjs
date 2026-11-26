@@ -109,8 +109,9 @@ try {
       const snapshotKits = (product === 'learn' ? inputs.learnSnapshot : inputs.conversationsSnapshot).kits;
       for (const k of snapshotKits) {
         const kit = JSON.stringify(await client.callTool({ name: product + '_kit', arguments: { kit: k.id } }));
-        if (k.state === 'verified') { assert.match(kit, /```text/, product + ' kit ' + k.id + ' should carry its prompt'); assert.doesNotMatch(kit, /coming soon/i, product + ' kit ' + k.id + ' is verified'); }
-        else { assert.match(kit, /coming soon/i, product + ' kit ' + k.id + ' should say coming soon'); assert.doesNotMatch(kit, /```text/, product + ' kit ' + k.id + ' must carry no prompt'); }
+        // The withheld wording is the docs tool's own sentence ("<title> (<step>) is coming soon."); a verified prompt may itself contain the words "coming soon".
+        if (k.state === 'verified') { assert.match(kit, /```text/, product + ' kit ' + k.id + ' should carry its prompt'); assert.doesNotMatch(kit, /\) is coming soon\./, product + ' kit ' + k.id + ' is verified'); }
+        else { assert.match(kit, /\) is coming soon\./, product + ' kit ' + k.id + ' should say coming soon'); assert.doesNotMatch(kit, /```text/, product + ' kit ' + k.id + ' must carry no prompt'); }
       }
       products.push({ product, tools, resources: resources.length, prompts: prompts.length, capabilities: caps, kits: Object.fromEntries(snapshotKits.map((k) => [k.id, k.state])), passed: true });
     } finally { await client.close(); }
