@@ -246,6 +246,8 @@ const snapshot = {
   starter,
   warnings,
 };
+// Guard: links point to the public site; the host the docs were read from must not appear in the served text.
+if (DOCS !== PUBLIC && JSON.stringify({ ...snapshot, sources: null }).includes(DOCS)) warnings.push('the docs host read from still appears in the served text');
 const json = JSON.stringify(snapshot, null, 1) + '\n';
 
 // Guard: no key, ever. A server key looks like fl_live_, fl_stag_ or fl_test_ followed by hex.
