@@ -1,5 +1,13 @@
 # Hosted documentation release preparation
 
+## November 26: rc4, the candidate for the joint production step
+
+- **Pinned source commit `fe29388`**, tag `hosted-docs-rc4`, on `main` of the private repository. Artifact `release-candidate-04`: content digest `7869404b1c403e88f97dcefd381e3f0a2770289fae72dcadeae911cd45b4748c`, `sourceDirty: false`, `check-hosted` passed (`artifacts/release-candidate-04-check.json`). Bundle `artifacts/hosted-docs-fe29388.tgz` (no node_modules), SHA-256 `558f2d878dd9dfe682881ce551874f8a6685a634f381cfb883afcae1f369feb2`.
+- **Snapshots** read from the developers staging site (deploy 6b08400b), the content the joint production step will serve, with every rendered site address rewritten to the public site. Against production reads (`scripts/compare-snapshots.mjs`), the only differences are the ones the release brings: Learn's guide gains the hosted MCP line (section `access`) and "Usage" becomes "Billing, under Charges" (section `open-session`); `developer-runtime.openapi.json` and its schema gain the Reporting read; the five Conversations kits are bundled as verified (6 of 6 counted runs each on runtime 2026.11.25.4, starter `fe714db`, US spellings under ruling C22). The staging API host appears only where production also names it. Learn: six verified kits, Class coming soon until the terms revision publishes.
+- **Also in rc4 since rc3:** the Conversations test-turn tool reconciled with the November 25 runtime (local stdio only; not in the hosted bundle), `maxRequestBodySize` passed to the SDK by both hosted handlers, `check-hosted` judging every kit by the snapshot's state.
+- Tests: Learn 15/15, Conversations 29/29. The hosted graph is unchanged in shape (11 files; `@modelcontextprotocol/server` and `zod/v4` only).
+- After the joint production publish: fetch production's served guide and contract bytes and compare with the snapshot digests; equal means rc4 stands, different means a docs refresh (Worker only).
+
 ## November 25, later: the pinned artifact for the Developer Platform lane
 
 Terry: "lets do the repo now since thats the real fix", and "yes we can proceed with the fixes".
